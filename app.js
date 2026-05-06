@@ -45,6 +45,16 @@ function mostrarJuegos(lista) {
   });
 }
 
+// 👇 AQUÍ MISMO PEGAS EL B
+function filtrarCategoria(cat) {
+  if (cat === "todas") {
+    mostrarJuegos(juegos);
+  } else {
+    const filtrados = juegos.filter(j => j.categoria === cat);
+    mostrarJuegos(filtrados);
+  }
+}
+
 // 🔍 Buscador
 document.getElementById("buscador").addEventListener("input", e => {
   const texto = e.target.value.toLowerCase();
