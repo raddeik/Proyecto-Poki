@@ -1,18 +1,20 @@
-body {
-  font-family: Arial;
-  background: #111;
+.card {
+  width: 180px;
+  background: #222;
+  padding: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: 0.2s;
+  display: inline-block;
+  margin: 10px;
   color: white;
   text-align: center;
 }
 
-.card {
-  background: #222;
-  padding: 20px;
-  margin: 10px;
-  display: inline-block;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: 0.2s;
+.card img {
+  width: 100%;
+  border-radius: 10px;
+  margin-bottom: 8px;
 }
 
 .card:hover {
