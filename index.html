@@ -1,30 +1,25 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Mini Poki</title>
+  <title>Mini Games</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <h1>🎮 Mini Poki</h1>
-  
-  <input type="text" id="buscador" placeholder="Buscar juego...">
+<h1>🎮 Mi Mini Poki</h1>
 
-  <div id="categorias">
-  <button onclick="filtrarCategoria('todas')">Todas</button>
-  <button onclick="filtrarCategoria('puzzle')">Puzzle</button>
-  <button onclick="filtrarCategoria('arcade')">Arcade</button>
-</div>
-  
-  <div id="categorias">
-  <button onclick="filtrarCategoria('todas')">Todas</button>
-  <button onclick="filtrarCategoria('puzzle')">Puzzle</button>
-  <button onclick="filtrarCategoria('arcade')">Arcade</button>
-</div>
-  
-  <div id="juegos"></div>
+<div class="games">
 
-  <script src="app.js"></script>
+  <div class="card" onclick="openGame('games/flappy/index.html')">
+    🐦 Flappy Game
+  </div>
+
+  <div class="card" onclick="openGame('games/memory/index.html')">
+    🧠 Memory Game
+  </div>
+
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
