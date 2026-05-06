@@ -1,11 +1,13 @@
 const juegos = [
   {
     nombre: "Tetris",
-    url: "https://games.construct.net/3231/latest"
+    url: "https://games.construct.net/3231/latest",
+    categoria: "puzzle"
   },
   {
     nombre: "Flappy Bird",
-    url: "https://nebezb.com/floppybird/"
+    url: "https://nebezb.com/floppybird/",
+    categoria: "arcade"
   }
 ];
 
