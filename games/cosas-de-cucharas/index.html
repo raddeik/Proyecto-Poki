@@ -1,1 +1,724 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cosa de Cucharas: Casino & Prestige Edition</title>
+    <style>
+        :root {
+            --bg: #020202; --panel: #0a0a0a; --accent: #3498db;
+            --gold: #f1c40f; --danger: #ff4757; --text: #eee; --purple: #a55eea; --godly: #e84393; --green: #2ecc71;
+        }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; user-select: none; }
 
+        #loading-screen {
+            position: fixed; inset: 0; background: #000; z-index: 5000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #loading-spoon { font-size: 150px; animation: colorShift 3s infinite linear; }
+        @keyframes colorShift {
+            0% { color: #ff4757; filter: drop-shadow(0 0 20px #ff4757); }
+            33% { color: #3498db; filter: drop-shadow(0 0 20px #3498db); }
+            66% { color: #2ecc71; filter: drop-shadow(0 0 20px #2ecc71); }
+            100% { color: #ff4757; filter: drop-shadow(0 0 20px #ff4757); }
+        }
+        .play-btn { margin-top: 40px; padding: 15px 50px; font-size: 24px; font-weight: 900; background: var(--accent); color: white; border: none; border-radius: 50px; cursor: pointer; transition: 0.3s; }
+        .play-btn:hover { transform: scale(1.1); box-shadow: 0 0 20px var(--accent); }
+
+        #settings-btn { position: fixed; top: 20px; left: 20px; font-size: 30px; cursor: pointer; z-index: 5100; transition: 0.3s; opacity: 0.7; }
+        #settings-menu { position: fixed; top: 70px; left: 20px; background: #111; border: 1px solid #333; padding: 15px; border-radius: 10px; display: none; z-index: 5100; min-width: 150px; }
+        .lang-option { padding: 10px; cursor: pointer; border-radius: 5px; transition: 0.2s; }
+        .lang-option:hover { background: #333; }
+
+        .sidebar { width: 320px; background: var(--panel); border: 1px solid #1a1a1a; display: flex; flex-direction: column; padding: 12px; z-index: 10; }
+
+        .accordion {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 260px;
+        }
+        .accordion summary {
+            cursor: pointer;
+            padding: 12px;
+            font-weight: bold;
+            list-style: none;
+            color: #eee;
+            background: #151515;
+            text-transform: uppercase;
+            flex: 0 0 auto;
+        }
+        .accordion summary::-webkit-details-marker { display: none; }
+        .accordion[open] summary { background: var(--accent); color: white; }
+        .accordion .item-list {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            padding: 10px;
+            max-height: 200px;
+        }
+
+        #achievements-list { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; border-bottom: 1px solid #222; margin-bottom: 10px; min-height: 60px; scrollbar-width: none; }
+        .achievement { min-width: 38px; height: 38px; border-radius: 50%; background: #111; display: flex; align-items: center; justify-content: center; filter: grayscale(1); opacity: 0.1; transition: 0.8s; font-size: 20px; border: 1px solid #222; }
+        .achievement.unlocked { filter: grayscale(0); opacity: 1; border: 2px solid var(--gold); box-shadow: 0 0 15px var(--gold); }
+
+        .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; background: radial-gradient(circle, #0f0f0f 0%, #000 100%); }
+        #spoon-btn { font-size: 140px; cursor: pointer; border: none; background: none; outline: none; transition: 0.2s; z-index: 5; }
+        #spoon-btn:active { transform: scale(0.8); }
+        #cucharas-val { font-size: 2.8rem; font-weight: 900; color: white; margin: 0; font-family: 'Courier New', monospace; }
+        #rank-label { color: var(--gold); font-weight: bold; letter-spacing: 4px; font-size: 12px; margin-top: 8px; }
+
+        #overheat-msg { color: var(--danger); font-weight: 900; visibility: hidden; text-shadow: 0 0 15px var(--danger); margin-bottom: 5px; font-size: 14px; }
+        #minigame-master-btn { margin-top: 20px; padding: 14px 35px; background: linear-gradient(45deg, var(--purple), var(--godly)); border: none; color: white; font-weight: 900; border-radius: 50px; cursor: pointer; text-transform: uppercase; }
+        #minigame-master-btn:disabled { opacity: 0.3; filter: grayscale(1); }
+
+        #plinko-board { width: 340px; height: 480px; background: #000; position: relative; border: 2px solid #1a1a1a; border-radius: 10px; margin: 10px 0; overflow: hidden; }
+        .peg { position: absolute; width: 4px; height: 4px; background: #333; border-radius: 50%; }
+        .ball { position: absolute; width: 8px; height: 8px; background: var(--gold); border-radius: 50%; box-shadow: 0 0 10px var(--gold); z-index: 10; transition: all 0.08s linear; }
+        .bucket { position: absolute; bottom: 0; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; border-top: 1px solid #222; }
+        .bucket-gold { background: linear-gradient(to top, rgba(241, 196, 15, 0.3), transparent); color: var(--gold) !important; box-shadow: inset 0 0 15px var(--gold); }
+
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+        .modal-box { background: #080808; padding: 30px; border-radius: 20px; border: 1px solid #222; text-align: center; width: 350px; }
+        .bet-btn { width: 100%; padding: 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #333; background: #111; color: #fff; cursor: pointer; font-weight: bold; }
+        .item-list button { width: 100%; text-align: left; padding: 12px; margin-bottom: 8px; border: 1px solid #1a1a1a; border-radius: 8px; background: #0d0d0d; color: #888; cursor: pointer; position: relative; }
+        .item-list button:disabled { opacity: 0.1; }
+        .price { color: var(--gold); font-weight: bold; display: block; font-size: 0.9rem; }
+        .bonus { color: var(--green); font-size: 0.75rem; font-weight: bold; display: block; margin-top: 4px; }
+        .particle { position: absolute; pointer-events: none; animation: fly 0.6s forwards; font-size: 24px; }
+        @keyframes fly { 0% { opacity:1; } 100% { transform: translate(var(--x), var(--y)) rotate(360deg); opacity:0; } }
+        .overheat { animation: shake 0.1s infinite; color: #ff3333 !important; }
+        @keyframes shake { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(2px, 2px); } }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <h1 id="txt-title" style="font-size: 50px; letter-spacing: 5px;">COSA DE CUCHARAS</h1>
+        <div id="loading-spoon">🥄</div>
+        <button class="play-btn" id="txt-play" onclick="startGame()">JUGAR</button>
+    </div>
+
+    <div id="settings-btn" onclick="toggleSettings()">⚙️</div>
+    <div id="settings-menu">
+        <div class="lang-option" onclick="changeLang('es')">🇪🇸 Español</div>
+        <div class="lang-option" onclick="changeLang('en')">🇺🇸 English</div>
+        <div class="lang-option" onclick="changeLang('ru')">🇷🇺 Русский</div>
+    </div>
+
+    <div class="sidebar">
+        <div id="achievements-list"></div>
+
+        <details class="accordion" open>
+            <summary>CLIC & PODER</summary>
+            <div id="list-izq-Click" class="item-list"></div>
+        </details>
+
+        <details class="accordion">
+            <summary>PERSONAL</summary>
+            <div id="list-izq-Personal" class="item-list"></div>
+        </details>
+
+        <details class="accordion">
+            <summary>INDUSTRIA</summary>
+            <div id="list-izq-Industrial" class="item-list"></div>
+        </details>
+
+        <details class="accordion">
+            <summary>FORJA</summary>
+            <div id="list-izq-Materiales" class="item-list"></div>
+        </details>
+    </div>
+
+    <div class="main" id="game-area">
+        <div id="overheat-msg">⚠️ SOBRECALENTAMIENTO ⚠️</div>
+        <div id="cucharas-val">0</div>
+        <button id="spoon-btn" onclick="clickSpoon()">🥄</button>
+        <div id="rank-label">RANGO: NOVATO</div>
+        <div id="material-label" style="color:var(--accent); font-weight:900; letter-spacing: 3px; font-size: 11px; margin-top:10px;">PAPEL</div>
+        <div class="sub-stats" style="margin-top:15px; font-family:monospace; color:#555; font-size:12px;">
+            <span id="txt-auto">AUTO</span>: <span id="auto-val">0</span>/s | <span id="txt-clic">CLIC</span>: <span id="cp-val">1</span> | x<span id="mult-val">1.0</span>
+        </div>
+        <button id="minigame-master-btn" onclick="openBetMenu()">🎰 CASINO 🎰</button>
+        <div style="font-size: 9px; color: #444; margin-top: 5px;"><span id="txt-entry">Entrada</span>: <span id="min-bet-val">100</span></div>
+    </div>
+
+    <div class="sidebar">
+        <details class="accordion" open>
+            <summary>MEJORAS</summary>
+            <div id="list-der-Ingredientes" class="item-list"></div>
+        </details>
+
+        <details class="accordion">
+            <summary>COMIDA</summary>
+            <div id="list-der-Comida" class="item-list"></div>
+        </details>
+
+        <details class="accordion">
+            <summary>RENACER</summary>
+            <div id="list-der-Renacimiento" class="item-list"></div>
+        </details>
+
+        <button id="txt-reset" onclick="resetGame()" style="margin-top:auto; background:none; border:none; color:#222; font-size:8px; cursor:pointer;">BORRAR TODO</button>
+    </div>
+
+    <div id="bet-overlay" class="overlay">
+        <div class="modal-box">
+            <h2 style="color:var(--gold)" id="txt-casino-title">APUESTAS</h2>
+            <button class="bet-btn" onclick="selectBetMode('skill')">🎯 <span id="txt-skill">HABILIDAD</span></button>
+            <button class="bet-btn" onclick="selectBetMode('plinko')" style="color:var(--purple)">⚪ PLINKO EXTREME</button>
+            <button class="bet-btn" onclick="selectBetMode('gambling')" style="color:var(--gold)">🎲 GAMBLING</button>
+            <button onclick="closeOverlays()" id="txt-close" style="margin-top:15px; color:#555; background:none; border:none; cursor:pointer;">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="plinko-overlay" class="overlay">
+        <h2 style="color:var(--gold)">PLINKO XL</h2>
+        <div id="plinko-board"></div>
+        <div style="width: 340px; display: flex; gap: 5px;">
+            <button class="bet-btn" onclick="dropPlinko(0.1)">10%</button>
+            <button class="bet-btn" onclick="dropPlinko(0.25)">25%</button>
+        </div>
+        <button onclick="closeOverlays()" id="txt-exit" style="margin-top:15px; color:#555; background:none; border:none; cursor:pointer;">SALIR</button>
+    </div>
+
+    <div id="mg-overlay" class="overlay">
+        <h2 id="mg-title"></h2>
+        <div id="mg-canvas" style="width:300px; height:300px; border:1px solid #222; position:relative; overflow:hidden; background:#000;"></div>
+        <div id="mg-timer" style="font-size: 2.5rem; color: var(--gold); font-weight: 900;">5</div>
+    </div>
+
+    <script>
+        const i18n = {
+            es: {
+                title: "COSA DE CUCHARAS", play: "JUGAR", auto: "AUTO", clic: "CLIC", entry: "Entrada", reset: "BORRAR TODO", exit: "SALIR", close: "CERRAR",
+                skill: "HABILIDAD", casinoTitle: "ZONA DE RIESGO", jackpot: "¡JACKPOT CENTRAL!", overheat: "⚠️ SOBRECALENTAMIENTO ⚠️", melted: "¡FUNDIDA! -10%",
+                prestigeConfirm: "¿RENACER? Perderás todo menos el multiplicador permanente. ¿Confirmar?",
+                mats: ["PAPEL", "PLÁSTICO", "MADERA", "HIERRO", "ORO", "TITANIO", "DIVINA"],
+                items: {
+                    Ayudante: "Ayudante", Chef: "Chef", Maestro: "Maestro", Fábrica: "Fábrica", Corporación: "Corporación", Mina: "Mina",
+                    Sal: "Sal", Aceite: "Aceite", Ajo: "Ajo", Tostada: "Tostada", Pizza: "Pizza", Festín: "Festín Royale",
+                    Plástico: "Plástico", Madera: "Madera", Hierro: "Hierro", Oro: "Oro", Titanio: "Titanio",
+                    CucharaPlastico: "Cuchara Plástico", DedoHierro: "Dedo de Hierro", CucharaTitanio: "Cuchara de Titanio",
+                    PoderMental: "Poder Mental", ClicGalactico: "Clic Galáctico",
+                    Pinche: "Pinche", ChefPro: "Chef Pro", CateringVIP: "Catering VIP", EjercitoCuchara: "Ejército Cuchara",
+                    MejoraADN: "Mejora ADN", ReliquiaAntigua: "Reliquia Antigua", ChipCuantico: "Chip Cuántico",
+                    CucharaAncestral: "Cuchara Ancestral",
+                    CucharaMadera: "Cuchara de Madera", CucharaOro: "Cuchara de Oro", CucharaDiamante: "Cuchara de Diamante"
+                }
+            },
+            en: {
+                title: "SPOON THING", play: "PLAY", auto: "AUTO", clic: "CLICK", entry: "Entry", reset: "RESET ALL", exit: "EXIT", close: "CLOSE",
+                skill: "SKILL GAMES", casinoTitle: "RISK ZONE", jackpot: "CENTRAL JACKPOT!", overheat: "⚠️ OVERHEATING ⚠️", melted: "MELTED! -10%",
+                prestigeConfirm: "PRESTIGE? You will lose everything but keep the permanent multiplier. Confirm?",
+                mats: ["PAPER", "PLASTIC", "WOOD", "IRON", "GOLD", "TITANIUM", "DIVINE"],
+                items: {
+                    Ayudante: "Helper", Chef: "Chef", Maestro: "Master", Fábrica: "Factory", Corporación: "Corp", Mina: "Mine",
+                    Sal: "Salt", Aceite: "Oil", Ajo: "Garlic", Tostada: "Toast", Pizza: "Pizza", Festín: "Royale Feast",
+                    Plástico: "Plastic", Madera: "Wood", Hierro: "Iron", Oro: "Gold", Titanio: "Titanium",
+                    CucharaPlastico: "Plastic Spoon", DedoHierro: "Iron Finger", CucharaTitanio: "Titanium Spoon",
+                    PoderMental: "Mental Power", ClicGalactico: "Galactic Click",
+                    Pinche: "Kitchen Hand", ChefPro: "Pro Chef", CateringVIP: "VIP Catering", EjercitoCuchara: "Spoon Army",
+                    MejoraADN: "DNA Upgrade", ReliquiaAntigua: "Ancient Relic", ChipCuantico: "Quantum Chip",
+                    CucharaAncestral: "Ancestral Spoon",
+                    CucharaMadera: "Wood Spoon", CucharaOro: "Gold Spoon", CucharaDiamante: "Diamond Spoon"
+                }
+            },
+            ru: {
+                title: "ЛОЖЕЧНОЕ ДЕЛО", play: "ИГРАТЬ", auto: "АВТО", clic: "КЛИК", entry: "Вход", reset: "СБРОСИТЬ ВСЁ", exit: "ВЫХОД", close: "ЗАКРЫТЬ",
+                skill: "ИГРЫ НАВЫКА", casinoTitle: "ЗОНА РИСКА", jackpot: "ЦЕНТРАЛЬНЫЙ ДЖЕКПОТ!", overheat: "⚠️ ПЕРЕГРЕВ ⚠️", melted: "РАСПЛАВИЛАСЬ! -10%",
+                prestigeConfirm: "ПРЕСТИЖ? Ты потеряешь всё, кроме постоянного множителя. Подтвердить?",
+                mats: ["БУМАГА", "ПЛАСТИК", "ДЕРЕВО", "ЖЕЛЕЗО", "ЗОЛОТО", "ТИТАН", "БОЖЕСТВЕННАЯ"],
+                items: {
+                    Ayudante: "Помощник", Chef: "Повар", Maestro: "Мастер", Fábrica: "Фабрика", Corporación: "Корпорация", Mina: "Шахта",
+                    Sal: "Соль", Aceite: "Масло", Ajo: "Чеснок", Tostada: "Тост", Pizza: "Пицца", Festín: "Пир Рояль",
+                    Plástico: "Пластик", Madera: "Дерево", Hierro: "Железо", Oro: "Золото", Titanio: "Титан",
+                    CucharaPlastico: "Пластиковая ложка", DedoHierro: "Железный палец", CucharaTitanio: "Титановая ложка",
+                    PoderMental: "Ментальная сила", ClicGalactico: "Галактический клик",
+                    Pinche: "Подмастерье", ChefPro: "Про-шеф", CateringVIP: "VIP-кейтеринг", EjercitoCuchara: "Армия ложек",
+                    MejoraADN: "Улучшение ДНК", ReliquiaAntigua: "Древняя реликвия", ChipCuantico: "Квантовый чип",
+                    CucharaAncestral: "Древняя ложка",
+                    CucharaMadera: "Деревянная ложка", CucharaOro: "Золотая ложка", CucharaDiamante: "Алмазная ложка"
+                }
+            }
+        };
+
+        let state = {
+            lang: 'es', cucharas: 0, totalHistorico: 0, auto: 0, cp: 1, multi: 1.0,
+            heat: 0, matLevel: 0, clicks: 0, unlockedLogros: [], counts: {}, prestigioMult: 1, rankName: "NOVATO"
+        };
+
+        const dbBase = {
+            Click: [
+                {n:"Comida rápida", p:50, cp:2},
+                {n:"Estomago de acero", p:500, cp:10},
+                {n:"Cáncer", p:10000, cp:150},
+                {n:"Poder Mental", p:500000, cp:2500},
+                {n:"Esternocleidomastoideo", p:10000000, cp:25000}
+            ],
+            Personal: [
+                {n:"Ayudante", p:20, a:1},
+                {n:"Chef", p:300, a:12},
+                {n:"Maestro", p:2500, a:60},
+                {n:"Pinche", p:25, a:1},
+                {n:"Chef Pro", p:300, a:15},
+                {n:"Papá de Maxi", p:15000, a:200},
+                {n:"Loco por las hamburguesas", p:200000, a:2500}
+            ],
+            Industrial: [
+                {n:"Camión", p:10000, a:250},
+                {n:"Almacén", p:100000, a:1800},
+                {n:"Fábrica", p:1000000, a:12000},
+                {n:"Corporación", p:1000, mult:0.1},
+                {n:"Planeta", p:50000, mult:0.5},
+                {n:"Galaxia", p:2000000, mult:2.0},
+                {n:"Universo", p:50000000, mult:5.0}
+            ],
+            Materiales: [
+                {n:"Plástico", p:50, m:2},
+                {n:"Madera", p:500, m:10},
+                {n:"Hierro", p:5000, m:40},
+                {n:"Oro", p:50000, m:150},
+                {n:"Titanio", p:250000, m:500}
+            ],
+            Ingredientes: [
+                {n:"Sal", p:100, mul:0.05},
+                {n:"Aceite", p:2000, mul:0.15},
+                {n:"Ajo", p:15000, mul:0.35}
+            ],
+            Comida: [
+                {n:"Tostada", p:250, cp:5},
+                {n:"Pizza", p:3500, cp:45},
+                {n:"Festín", p:30000, cp:200}
+            ],
+            Renacimiento: [
+                {n:"WC", p:1000000, m:5},
+                {n:"Expansión de dominio", p:100000000, m:50},
+                {n:"Cagada", p:9999999999, m:500}
+            ]
+        };
+
+        const db = JSON.parse(JSON.stringify(dbBase));
+        const baseMateriales = JSON.parse(JSON.stringify(db.Materiales));
+
+        // FUNCIÓN PARA FORMATEAR NÚMEROS CON ABREVIATURAS
+        function formatNumber(num) {
+            if (num < 1000) return Math.floor(num).toString();
+            
+            const suffixes = [
+                { div: 1000, suf: 'K' },
+                { div: 1000000, suf: 'M' },
+                { div: 1000000000, suf: 'B' },
+                { div: 1000000000000, suf: 'T' },
+                { div: 1000000000000000, suf: 'Q' },
+                { div: 1000000000000000000, suf: 'Qi' },
+                { div: 1000000000000000000000, suf: 'Sx' }
+            ];
+            
+            for (let i = 0; i < suffixes.length; i++) {
+                if (num >= suffixes[i].div) {
+                    return (num / suffixes[i].div).toFixed(1).replace(/\.0$/, '') + suffixes[i].suf;
+                }
+            }
+            return num.toString();
+        }
+
+        function startGame() { document.getElementById('loading-screen').style.display = 'none'; }
+        function toggleSettings() { const m = document.getElementById('settings-menu'); m.style.display = m.style.display === 'block' ? 'none' : 'block'; }
+
+        function changeLang(l) {
+            state.lang = l;
+            const t = i18n[l];
+            document.getElementById('txt-title').innerText = t.title;
+            document.getElementById('txt-play').innerText = t.play;
+            document.getElementById('txt-auto').innerText = t.auto;
+            document.getElementById('txt-clic').innerText = t.clic;
+            document.getElementById('txt-entry').innerText = t.entry;
+            document.getElementById('txt-reset').innerText = t.reset;
+            document.getElementById('txt-exit').innerText = t.exit;
+            document.getElementById('txt-close').innerText = t.close;
+            document.getElementById('txt-skill').innerText = t.skill;
+            document.getElementById('txt-casino-title').innerText = t.casinoTitle;
+            document.getElementById('overheat-msg').innerText = t.overheat;
+            renderTabs();
+            updateUI();
+            toggleSettings();
+        }
+
+        function clickSpoon() {
+            state.clicks++;
+            let gain = state.cp * state.multi * state.prestigioMult;
+            state.cucharas += gain;
+            state.totalHistorico += gain;
+            spawnParticle();
+            updateUI();
+        }
+
+        function spawnParticle() {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.innerText = '🥄';
+            p.style.left = '50%';
+            p.style.top = '50%';
+            p.style.setProperty('--x', (Math.random() * 400 - 200) + 'px');
+            p.style.setProperty('--y', (Math.random() * 400 - 200) + 'px');
+            document.getElementById('game-area').appendChild(p);
+            setTimeout(() => p.remove(), 600);
+        }
+
+        function openBetMenu() { if (state.cucharas >= getMinBet()) document.getElementById('bet-overlay').style.display = 'flex'; }
+        function closeOverlays() { document.querySelectorAll('.overlay').forEach(o => o.style.display = 'none'); }
+
+        function selectBetMode(m) {
+            closeOverlays();
+            if (m === 'plinko') { document.getElementById('plinko-overlay').style.display = 'flex'; initPlinko(); }
+            else if (m === 'skill') { startSkillGame(); }
+            else if (m === 'gambling') { showGamblingModal(); }
+        }
+
+        function showGamblingModal() {
+            const overlay = document.getElementById('bet-overlay');
+            const modal = overlay.querySelector('.modal-box');
+            modal.innerHTML = `
+                <h2 style="color:var(--gold)">🎲 GAMBLING</h2>
+                <button class="bet-btn" onclick="gamble('moneda')">🪙 CARA O CRUZ (x2 - 50%)</button>
+                <button class="bet-btn" onclick="gamble('dados')">🎲 DADOS (x3 - 33%)</button>
+                <button class="bet-btn" onclick="gamble('slots')">🎰 TRAGAPERRAS (x10 - 5%)</button>
+                <button class="bet-btn" onclick="gamble('rusa')" style="color:var(--danger)">💀 RULETA RUSA (x50 - 15%)</button>
+                <button onclick="closeOverlays()" style="margin-top:20px; background:none; border:none; color:#555; cursor:pointer;">VOLVER AL MENÚ</button>
+            `;
+            overlay.style.display = 'flex';
+        }
+
+        function gamble(tipo) {
+            let cant = prompt("¿Cuánto quieres apostar? (Tienes: " + formatNumber(Math.floor(state.cucharas)) + ")");
+            cant = parseInt(cant);
+            if (isNaN(cant) || cant <= 0 || cant > state.cucharas) { alert("Cantidad no válida."); return; }
+            state.cucharas -= cant;
+            let prob = Math.random();
+            let gano = false;
+            let premio = 0;
+            let msg = "";
+            if (tipo === 'moneda' && prob < 0.5) { gano = true; premio = cant * 2; msg = "x2"; }
+            else if (tipo === 'dados' && prob < 0.33) { gano = true; premio = cant * 3; msg = "x3"; }
+            else if (tipo === 'slots' && prob < 0.05) { gano = true; premio = cant * 10; msg = "x10"; }
+            else if (tipo === 'rusa' && prob < 0.15) { gano = true; premio = cant * 50; msg = "x50"; }
+            if (gano) { state.cucharas += premio; alert("¡GANASTE " + msg + "! +" + formatNumber(premio) + " 🥄"); }
+            else { alert("Perdiste la apuesta..."); }
+            updateUI(); save();
+        }
+
+        const getMinBet = () => Math.max(100, Math.floor(state.totalHistorico * 0.1));
+
+        function initPlinko() {
+            const b = document.getElementById('plinko-board');
+            b.innerHTML = '';
+            for (let r = 0; r < 14; r++) {
+                for (let i = 0; i <= r; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'peg';
+                    p.style.top = (30 + r * 28) + 'px';
+                    p.style.left = (170 - (r * 10) + (i * 20)) + 'px';
+                    b.appendChild(p);
+                }
+            }
+            const mults = [100, 50, 10, 5, 1, 0.5, 0.1, "JACKPOT", "JACKPOT", 0.1, 0.5, 1, 5, 10, 50, 100];
+            mults.forEach((m, i) => {
+                const bu = document.createElement('div');
+                bu.className = 'bucket';
+                if (m === "JACKPOT") bu.classList.add('bucket-gold');
+                bu.style.width = (340 / 16) + 'px';
+                bu.style.left = (i * (340 / 16)) + 'px';
+                bu.innerText = m === "JACKPOT" ? "90%" : "x" + m;
+                b.appendChild(bu);
+            });
+        }
+
+        function dropPlinko(p) {
+            const bet = Math.floor(state.cucharas * p);
+            state.cucharas -= bet;
+            const ball = document.createElement('div');
+            ball.className = 'ball';
+            ball.style.top = '10px';
+            ball.style.left = '166px';
+            document.getElementById('plinko-board').appendChild(ball);
+            let r = 0, l = 166;
+            const iv = setInterval(() => {
+                r++;
+                l += (Math.random() > 0.51 ? 10 : -10);
+                ball.style.top = (30 + r * 28 - 12) + 'px';
+                ball.style.left = l + 'px';
+                if (r >= 14) {
+                    clearInterval(iv);
+                    const idx = Math.floor(l / (340 / 16));
+                    const mults = [100, 50, 10, 5, 1, 0.5, 0.1, "JACKPOT", "JACKPOT", 0.1, 0.5, 1, 5, 10, 50, 100];
+                    const res = mults[Math.min(15, Math.max(0, idx))];
+                    if (res === "JACKPOT") {
+                        let bonus = Math.floor(state.cucharas * 0.9);
+                        state.cucharas += bonus;
+                        alert(i18n[state.lang].jackpot + " +" + formatNumber(bonus));
+                    } else {
+                        let win = Math.floor(bet * res);
+                        state.cucharas += win;
+                        alert("x" + res + "! = " + formatNumber(win));
+                    }
+                    ball.remove();
+                    updateUI();
+                    save();
+                }
+            }, 80);
+        }
+
+        function startSkillGame() {
+            const overlay = document.getElementById('mg-overlay');
+            const canvas = document.getElementById('mg-canvas');
+            overlay.style.display = 'flex';
+            canvas.innerHTML = '';
+
+            const games = ['click', 'reflex', 'lucky'];
+            const game = games[Math.floor(Math.random() * games.length)];
+            let timeLeft = 5;
+            let finished = false;
+
+            document.getElementById('mg-timer').innerText = timeLeft;
+
+            const finish = (win) => {
+                if (finished) return;
+                finished = true;
+                clearInterval(clock);
+                overlay.style.display = 'none';
+
+                const bet = Math.floor(state.cucharas * 0.2);
+                if (win) { state.cucharas += bet; alert("OK!"); }
+                else { state.cucharas -= bet; alert("NO!"); }
+                updateUI();
+                save();
+            };
+
+            if (game === 'click') {
+                document.getElementById('mg-title').innerText = "CLICK!";
+                let c = 0;
+                const t = document.createElement('div');
+                t.className = 'ball';
+                t.style.width = "40px";
+                t.style.height = "40px";
+                t.style.top = '125px';
+                t.style.left = '125px';
+                t.style.cursor = "pointer";
+                t.onclick = () => {
+                    if (finished) return;
+                    c++;
+                    t.style.top = Math.random() * 250 + 'px';
+                    t.style.left = Math.random() * 250 + 'px';
+                    if (c >= 12) finish(true);
+                };
+                canvas.appendChild(t);
+            } else if (game === 'reflex') {
+                document.getElementById('mg-title').innerText = "!!!";
+                const t = document.createElement('div');
+                t.className = 'ball';
+                t.style.width = "60px";
+                t.style.height = "60px";
+                t.style.top = '120px';
+                t.style.left = '120px';
+                t.style.background = "#222";
+                canvas.appendChild(t);
+                setTimeout(() => {
+                    if (finished) return;
+                    t.style.background = "#2ecc71";
+                    t.style.cursor = "pointer";
+                    t.onclick = () => finish(true);
+                }, 1200 + Math.random() * 2500);
+            } else {
+                document.getElementById('mg-title').innerText = "? ? ?";
+                for (let i = 0; i < 4; i++) {
+                    const btn = document.createElement('div');
+                    btn.className = 'ball';
+                    btn.style.width = "40px";
+                    btn.style.height = "40px";
+                    btn.style.top = (20 + i * 70) + 'px';
+                    btn.style.left = '130px';
+                    btn.style.cursor = "pointer";
+                    btn.onclick = () => finish(Math.random() > 0.75);
+                    canvas.appendChild(btn);
+                }
+            }
+
+            const clock = setInterval(() => {
+                if (finished) return;
+                timeLeft--;
+                document.getElementById('mg-timer').innerText = timeLeft;
+                if (timeLeft <= 0) finish(false);
+            }, 1000);
+        }
+
+        function buy(cat, idx) {
+            const item = db[cat][idx];
+            if (!item) return;
+            const countKey = cat + '_' + item.n;
+            const count = state.counts[countKey] || 0;
+            const price = Math.floor(item.p * Math.pow(1.5, count));
+
+            if (state.cucharas >= price) {
+                state.cucharas -= price;
+                state.counts[countKey] = count + 1;
+
+                if (cat === 'Materiales') {
+                    state.cp += item.m;
+                    state.matLevel++;
+                    item.bought = true;
+                } else if (cat === 'Click') {
+                    state.cp += item.cp || 0;
+                } else if (cat === 'Ingredientes') {
+                    state.multi += item.mul;
+                } else if (cat === 'Comida') {
+                    state.cp += item.cp;
+                } else {
+                    if (item.a) state.auto += item.a;
+                    if (item.mult) state.multi += item.mult;
+                }
+
+                renderTabs();
+                updateUI();
+                save();
+            }
+        }
+
+        function buyRenacimiento(idx) {
+            const item = db.Renacimiento[idx];
+            if (state.cucharas < item.p) return;
+            if (!confirm(i18n[state.lang].prestigeConfirm)) return;
+
+            state.cucharas = 0;
+            state.auto = 0;
+            state.cp = 1;
+            state.multi = 1.0;
+            state.matLevel = 0;
+            state.heat = 0;
+            state.counts = {};
+            db.Materiales = JSON.parse(JSON.stringify(baseMateriales));
+
+            state.prestigioMult = item.m;
+            state.rankName = (i18n[state.lang].items[item.n] || item.n).toUpperCase();
+
+            renderTabs();
+            updateUI();
+            save();
+        }
+
+        setInterval(() => {
+            if (state.clicks > 12) state.heat = Math.min(100, state.heat + 10);
+            else state.heat = Math.max(0, state.heat - 5);
+
+            const s = document.getElementById('spoon-btn');
+            s.style.filter = `drop-shadow(0 0 ${state.heat / 3}px #f00)`;
+            s.classList.toggle('overheat', state.heat > 50);
+            document.getElementById('overheat-msg').style.visibility = state.heat > 50 ? 'visible' : 'hidden';
+
+            if (state.heat >= 100) {
+                state.cucharas = Math.floor(state.cucharas * 0.9);
+                state.heat = 0;
+                alert(i18n[state.lang].melted);
+            }
+            state.clicks = 0;
+        }, 1000);
+
+        setInterval(() => {
+            let g = (state.auto * state.multi * state.prestigioMult);
+            state.cucharas += g;
+            state.totalHistorico += g;
+            updateUI();
+
+            const min = getMinBet();
+            document.getElementById('min-bet-val').innerText = formatNumber(min);
+            document.getElementById('minigame-master-btn').disabled = (state.cucharas < min);
+        }, 1000);
+
+        function updateUI() {
+            document.getElementById('cucharas-val').innerText = formatNumber(Math.floor(state.cucharas));
+            document.getElementById('auto-val').innerText = formatNumber((state.auto * state.multi * state.prestigioMult * 10) / 10);
+            document.getElementById('cp-val').innerText = formatNumber((state.cp * state.multi * state.prestigioMult * 10) / 10);
+            document.getElementById('mult-val').innerText = state.multi.toFixed(2);
+            document.getElementById('rank-label').innerText = `RANGO: ${state.rankName}`;
+            document.getElementById('material-label').innerText = i18n[state.lang].mats[Math.min(6, state.matLevel)];
+        }
+
+        function renderTabs() {
+            const draw = (id, cat) => {
+                const list = document.getElementById(id);
+                if (!list) return;
+                list.innerHTML = '';
+
+                if (cat === 'Renacimiento') {
+                    db[cat].forEach((item, i) => {
+                        const btn = document.createElement('button');
+                        btn.disabled = state.cucharas < item.p;
+                        const name = i18n[state.lang].items[item.n] || item.n;
+                        btn.innerHTML = `<strong>${name}</strong> <span class="price">💰 ${formatNumber(item.p)}</span><span class="bonus">x${item.m} PRESTIGE</span>`;
+                        btn.onclick = () => buyRenacimiento(i);
+                        list.appendChild(btn);
+                    });
+                    return;
+                }
+
+                db[cat].forEach((item, i) => {
+                    if (cat === 'Materiales' && item.bought) return;
+
+                    const countKey = cat + '_' + item.n;
+                    const count = state.counts[countKey] || 0;
+                    const price = Math.floor(item.p * Math.pow(1.5, count));
+
+                    const btn = document.createElement('button');
+                    btn.disabled = state.cucharas < price;
+                    btn.onclick = () => buy(cat, i);
+
+                    const name = i18n[state.lang].items[item.n] || item.n;
+
+                    let extra = '';
+                    if (cat === 'Click' || cat === 'Comida') extra = `+${formatNumber(item.cp)} clic`;
+                    else if (cat === 'Ingredientes') extra = `+${(item.mul * 100).toFixed(0)}% multi`;
+                    else if (item.a) extra = `+${formatNumber(item.a)} auto/s`;
+                    else if (item.mult) extra = `+${(item.mult * 100).toFixed(0)}% multi`;
+                    else if (cat === 'Materiales') extra = `+${formatNumber(item.m)} clic`;
+
+                    btn.innerHTML = `<strong>${name} (${count})</strong> <span class="price">💰 ${formatNumber(price)}</span><span class="bonus">${extra}</span>`;
+                    list.appendChild(btn);
+                });
+            };
+
+            draw('list-izq-Click', 'Click');
+            draw('list-izq-Personal', 'Personal');
+            draw('list-izq-Industrial', 'Industrial');
+            draw('list-izq-Materiales', 'Materiales');
+
+            draw('list-der-Ingredientes', 'Ingredientes');
+            draw('list-der-Comida', 'Comida');
+            draw('list-der-Renacimiento', 'Renacimiento');
+        }
+
+        function save() { localStorage.setItem('spoon_ultimate_save_v2', JSON.stringify(state)); }
+
+        function load() {
+            const s = localStorage.getItem('spoon_ultimate_save_v2');
+            if (s) {
+                const loaded = JSON.parse(s);
+                state = { ...state, ...loaded };
+                db.Materiales = JSON.parse(JSON.stringify(baseMateriales));
+            }
+            changeLang(state.lang || 'es');
+            renderTabs();
+            updateUI();
+        }
+
+        function resetGame() {
+            if (confirm("¿Borrar TODO el progreso? (incluye prestige)")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        window.onload = load;
+    </script>
+</body>
+</html>
