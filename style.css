@@ -5,38 +5,22 @@ body {
   color: white;
 }
 
-#juegos {
+.games {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 20px;
   padding: 20px;
 }
 
-.juego {
+.card {
   background: #222;
-  padding: 10px;
-  border-radius: 10px;
-}
-
-button {
-  margin-bottom: 5px;
+  padding: 20px;
+  border-radius: 12px;
   cursor: pointer;
+  transition: 0.2s;
 }
 
-#categorias {
-  margin: 20px;
-}
-
-#categorias button {
-  margin: 5px;
-  padding: 10px;
-  border: none;
-  border-radius: 5px;
-  background: #444;
-  color: white;
-  cursor: pointer;
-}
-
-#categorias button:hover {
-  background: #666;
+.card:hover {
+  transform: scale(1.05);
+  background: #333;
 }
