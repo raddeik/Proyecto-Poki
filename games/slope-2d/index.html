@@ -1,1 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Slope - Leaderboard Edition</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Arial Black', sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; transition: transform 0.1s; }
+        
+        .overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            background: rgba(0,0,0,0.92); z-index: 10; color: #0f0; 
+        }
 
+        #live-score { 
+            position: absolute; top: 20px; width: 100%; text-align: center; 
+            font-size: 70px; color: #0f0; opacity: 0.2; z-index: 5; pointer-events: none;
+        }
+
+        #speed-msg {
+            position: absolute; top: 40%; width: 100%; text-align: center;
+            font-size: 80px; color: #fff; text-shadow: 0 0 30px #0f0;
+            display: none; z-index: 15; pointer-events: none;
+        }
+
+        /* Estilo de la Tabla de Clasificación */
+        .leaderboard-table {
+            border-collapse: collapse; margin-top: 20px; width: 300px;
+            color: #0f0; text-align: left; font-size: 18px;
+        }
+        .leaderboard-table th, .leaderboard-table td { padding: 10px; border-bottom: 1px solid #111; }
+        .leaderboard-table tr:nth-child(1) td { color: gold; text-shadow: 0 0 10px gold; }
+
+        h1 { font-size: 80px; margin: 0; text-shadow: 0 0 30px #0f0; font-style: italic; }
+        .btn-group { display: flex; flex-direction: column; gap: 15px; margin-top: 25px; }
+        
+        button { 
+            background: transparent; border: 4px solid #0f0; color: #0f0; 
+            padding: 12px 0; font-size: 22px; cursor: pointer; font-family: inherit;
+            transition: 0.2s; width: 280px;
+        }
+        button:hover { background: #0f0; color: #000; box-shadow: 0 0 40px #0f0; }
+        button.sec { border-color: #444; color: #444; }
+    </style>
+</head>
+<body>
+
+    <div id="live-score">0</div>
+    <div id="speed-msg">¡SPEED UP!</div>
+
+    <!-- Menú Principal -->
+    <div id="menu" class="overlay">
+        <h1>SLOPE</h1>
+        <div class="btn-group">
+            <button onclick="pressStart()">START</button>
+            <button class="sec" onclick="toggleLeaderboard(true)">LEADERBOARD</button>
+        </div>
+    </div>
+
+    <!-- Pantalla de Clasificación -->
+    <div id="leaderboard-screen" class="overlay" style="display:none">
+        <h1>TOP 10</h1>
+        <table class="leaderboard-table" id="best-scores-list"></table>
+        <div class="btn-group">
+            <button onclick="toggleLeaderboard(false)">VOLVER</button>
+        </div>
+    </div>
+
+    <!-- Pantalla de Muerte -->
+    <div id="death" class="overlay" style="display:none">
+        <h1 style="color:red;">CRASH</h1>
+        <div class="btn-group">
+            <button onclick="pressStart()">RETRY</button>
+            <button class="sec" onclick="showMenu()">MENU</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreUI = document.getElementById('live-score');
+        const speedMsg = document.getElementById('speed-msg');
+        
+        let w, h, ball, platforms, speed, score, active = false;
+        let keys = {};
+        let scoreInterval;
+
+        function resize() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        function pressStart() {
+            document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
+            initGame();
+        }
+
+        function showMenu() {
+            document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
+            document.getElementById('menu').style.display = 'flex';
+            ctx.clearRect(0,0,w,h);
+        }
+
+        function toggleLeaderboard(show) {
+            document.getElementById('menu').style.display = show ? 'none' : 'flex';
+            document.getElementById('leaderboard-screen').style.display = show ? 'flex' : 'none';
+            if(show) updateLeaderboardDisplay();
+        }
+
+        function initGame() {
+            ball = { x: 0, vX: 0 };
+            platforms = [];
+            score = 0;
+            speed = 12;
+            scoreUI.innerText = "0";
+            for(let i=0; i<15; i++) addPlatform(i * 180);
+
+            clearInterval(scoreInterval);
+            scoreInterval = setInterval(() => {
+                if(active) {
+                    score++;
+                    scoreUI.innerText = score;
+                    if (score > 0 && score % 10 === 0) {
+                        speed *= 1.15;
+                        triggerSpeedUp();
+                    }
+                }
+            }, 3000);
+
+            if(!active) { active = true; loop(); }
+        }
+
+        function triggerSpeedUp() {
+            speedMsg.style.display = 'block';
+            canvas.style.transform = "scale(1.05)";
+            setTimeout(() => {
+                speedMsg.style.display = 'none';
+                canvas.style.transform = "scale(1)";
+            }, 1000);
+        }
+
+        function addPlatform(z) {
+            let lastX = platforms.length > 0 ? platforms[platforms.length-1].x : 0;
+            let obsPos = Math.floor(Math.random() * 3) - 1; 
+            platforms.push({
+                z: z, x: lastX + (Math.random() - 0.5) * 80, w: 250, 
+                obs: Math.random() > 0.6 && z > 1000, obsLane: obsPos 
+            });
+        }
+
+        function project(x, y, z) {
+            let fov = 500;
+            let s = fov / (fov + z);
+            return { x: w/2 + x * s, y: h/2 + y * s, s: s };
+        }
+
+        function loop() {
+            if(!active) return;
+            ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h);
+            if(keys.arrowleft || keys.a) ball.vX -= 1.2;
+            if(keys.arrowright || keys.d) ball.vX += 1.2;
+            ball.vX *= 0.90; ball.x += ball.vX;
+
+            for(let i = platforms.length - 1; i >= 0; i--) {
+                let p = platforms[i]; p.z -= speed;
+                let p1 = project(p.x - p.w/2 - ball.x, 250, p.z);
+                let p2 = project(p.x + p.w/2 - ball.x, 250, p.z + 180);
+
+                if(p1.s > 0) {
+                    ctx.fillStyle = "#080808"; ctx.fillRect(p1.x, p1.y, (p2.x - p1.x), 30 * p1.s);
+                    ctx.strokeStyle = "#0f0"; ctx.lineWidth = 4 * p1.s;
+                    ctx.beginPath();
+                    let midX = p1.x + (p2.x - p1.x) / 2;
+                    ctx.moveTo(midX, p1.y); ctx.lineTo(midX, p1.y + 30 * p1.s);
+                    ctx.stroke(); ctx.strokeRect(p1.x, p1.y, (p2.x - p1.x), 30 * p1.s);
+
+                    if(p.obs) {
+                        ctx.fillStyle = "#f00";
+                        let obsW = (p2.x - p1.x) / 4;
+                        let obsX = p1.x + (p2.x - p1.x)/2 - obsW/2 + (p.obsLane * (p2.x - p1.x)/3);
+                        ctx.fillRect(obsX, p1.y - 50 * p1.s, obsW, 50 * p1.s);
+                        let realObsX = p.x + (p.obsLane * p.w/3);
+                        if(p.z < 150 && p.z > 0 && Math.abs(realObsX - ball.x) < 45) die();
+                    }
+                }
+                if(p.z < -180) {
+                    if(Math.abs(p.x - ball.x) > p.w/2 + 35) die();
+                    platforms.splice(i, 1);
+                    addPlatform(platforms[platforms.length-1].z + 180);
+                }
+            }
+            let b = project(0, 215, 100);
+            ctx.beginPath(); ctx.arc(b.x, b.y, 22 * b.s, 0, Math.PI*2);
+            let g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 22*b.s);
+            g.addColorStop(0, '#fff'); g.addColorStop(0.4, '#0f0'); g.addColorStop(1, '#000');
+            ctx.fillStyle = g; ctx.fill();
+            requestAnimationFrame(loop);
+        }
+
+        function saveScore(newScore) {
+            let scores = JSON.parse(localStorage.getItem('slope_leaderboard')) || [];
+            scores.push(newScore);
+            scores.sort((a, b) => b - a);
+            scores = scores.slice(0, 10);
+            localStorage.setItem('slope_leaderboard', JSON.stringify(scores));
+        }
+
+        function updateLeaderboardDisplay() {
+            let scores = JSON.parse(localStorage.getItem('slope_leaderboard')) || [];
+            let html = scores.map((s, i) => `<tr><td>#${i+1}</td><td>${s} PTS</td></tr>`).join('');
+            document.getElementById('best-scores-list').innerHTML = html || '<tr><td colspan="2">SIN RÉCORDS</td></tr>';
+        }
+
+        function die() {
+            active = false;
+            clearInterval(scoreInterval);
+            saveScore(score);
+            document.getElementById('death').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
