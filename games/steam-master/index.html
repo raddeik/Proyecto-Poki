@@ -1,1 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Steam Empire</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a0a; color: #eee; font-family: 'Segoe UI', sans-serif; display: flex; overflow: hidden; height: 100vh; }
+        #sidebar { width: 280px; min-width: 280px; background: #1a1a1a; padding: 16px; border-right: 3px solid #333; z-index: 10; overflow-y: auto; }
+        #viewport { flex-grow: 1; overflow: hidden; position: relative; }
+        canvas { display: block; cursor: crosshair; }
+        .stat { font-size: 1.1em; margin-bottom: 8px; color: #f1c40f; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; border: 1px solid #444; }
+        .mode-indicator { background: #2980b9; color: white; padding: 8px; text-align: center; font-weight: bold; border-radius: 5px; margin-bottom: 12px; border: 2px solid #3498db; font-size: 0.85em; }
+        .btn { background: #d35400; color: white; border: none; padding: 10px; width: 100%; cursor: pointer; font-weight: bold; margin-bottom: 6px; border-radius: 6px; transition: 0.2s; font-size: 0.85em; }
+        .btn:hover { background: #e67e22; transform: translateY(-1px); }
+        .btn.active { background: #27ae60; box-shadow: 0 0 8px #27ae60; }
+        .btn-village { background: #8e44ad !important; }
+        .btn-village:hover { background: #9b59b6 !important; }
+        .btn-village.active { background: #6c3483 !important; box-shadow: 0 0 8px #9b59b6 !important; }
+        .income-pop { position: absolute; color: #2ecc71; font-weight: bold; animation: float 1.5s ease-out forwards; pointer-events: none; text-shadow: 1px 1px 2px black; font-size: 22px; z-index: 100; }
+        @keyframes float { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-120px); } }
+        h2 { text-align: center; color: #ecf0f1; margin-bottom: 12px; font-size: 1.1em; letter-spacing: 1px; }
+        .section-label { font-size: 0.7em; color: #888; text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 4px; }
+    </style>
+</head>
+<body>
 
+<div id="sidebar">
+    <h2>⚙ STEAM MASTER</h2>
+    <div class="mode-indicator" id="orient-ui">Z: VÍA HORIZONTAL</div>
+    <div class="stat">💰 ORO: $<b id="money">5000</b></div>
+    <div class="stat" style="color:#a29bfe; font-size:0.9em;">🏘 Pueblos: <b id="village-count">0</b> colocados</div>
+
+    <div class="section-label">Infraestructura</div>
+    <button class="btn active" id="btn-via" onclick="setTool('VIA')">🛤 VÍA ($50)</button>
+    <button class="btn" id="btn-est" onclick="setTool('EST')">🏪 ESTACIÓN ($200)</button>
+    <button class="btn" id="btn-tun" style="background:#444">🕳 TÚNEL ($500) [E]</button>
+
+    <div class="section-label">Pueblo</div>
+    <button class="btn btn-village" id="btn-vil" onclick="setTool('VIL')">🏘 PUEBLO ($1000)</button>
+
+    <div class="section-label">Trenes</div>
+    <button class="btn" onclick="buyTrain()" style="background:#2ecc71;">🛒 COMPRAR TREN ($150)</button>
+
+    <div class="section-label" style="margin-top:10px;">Sistema</div>
+    <button class="btn" onclick="resetGame()" style="background:#c0392b; font-size:0.75em;">🗑 BORRAR PARTIDA</button>
+
+    <div style="margin-top:12px; font-size:0.7em; color:#555; line-height:1.8;">
+        Click izq: construir<br>
+        Click der: eliminar<br>
+        Flechas: mover cámara<br>
+        Z: cambiar orientación<br>
+        E: colocar estación rápida
+    </div>
+</div>
+
+<div id="viewport"><canvas id="canvas"></canvas></div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const TILE = 80;
+
+let money = 5000;
+let tool = 'VIA';
+let orientation = 'H';
+let world = {};
+let trains = [];
+let particles = [];
+let cam = { x: 0, y: 0 };
+let mousePos = { x: 0, y: 0 };
+let villages = [];
+let placedVillageCount = 0;
+
+const VILLAGE_NAMES = [
+    "Valdehumo","Ferroca","Pueblo Vapor","Las Calderas","Monte Hierro",
+    "Villa Rieles","San Pistón","Carboneras","Aldea Vía","El Fogón",
+    "Puenteverde","Rioférrico","Cerro Cobre","Vaporville","Torreminas"
+];
+
+function saveGame() {
+    const data = {
+        money, world, cam,
+        trains: trains.map(t => ({ x: t.x, y: t.y, dir: t.dir, lastGx: t.lastGx, lastGy: t.lastGy })),
+        villages: villages.map(v => ({ x: v.x, y: v.y, name: v.name, isPlaced: v.isPlaced, buildings: v.buildings }))
+    };
+    try { localStorage.setItem('railMasterSave2', JSON.stringify(data)); } catch(e) {}
+}
+
+function loadGame() {
+    try {
+        const saved = localStorage.getItem('railMasterSave2');
+        if (saved) {
+            const data = JSON.parse(saved);
+            money = data.money;
+            world = data.world;
+            cam = data.cam;
+            trains = data.trains.map(t => ({
+                ...t,
+                history: Array(45).fill({x: t.x, y: t.y})
+            }));
+            if (data.villages) {
+                villages = data.villages.map(v => ({ ...v, lastIncomes: {} }));
+            }
+            placedVillageCount = villages.filter(v => v.isPlaced).length;
+            updateUI();
+        }
+    } catch(e) {}
+}
+
+function resetGame() {
+    if(confirm("¿Seguro que quieres borrar todo tu progreso?")) {
+        try { localStorage.removeItem('railMasterSave2'); } catch(e) {}
+        location.reload();
+    }
+}
+
+function createVillageBuildings() {
+    const count = 8 + Math.floor(Math.random() * 8);
+    return Array(count).fill(0).map(() => ({
+        ox: Math.random() * 220 - 110,
+        oy: Math.random() * 220 - 110,
+        w: 25 + Math.random() * 30,
+        h: 35 + Math.random() * 65,
+        color: ['#4e342e','#37474f','#263238','#5d4037','#455a64','#4caf50','#8d6e63'][Math.floor(Math.random() * 7)],
+        roof: ['#c0392b','#d35400','#16a085','#8e44ad','#2980b9'][Math.floor(Math.random() * 5)]
+    }));
+}
+
+function setTool(t) {
+    tool = t;
+    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    const map = { 'VIA': 'btn-via', 'EST': 'btn-est', 'VIL': 'btn-vil' };
+    if (map[t] && document.getElementById(map[t])) document.getElementById(map[t]).classList.add('active');
+}
+
+function buyTrain() {
+    const stations = Object.keys(world).filter(k => world[k].type === 'EST');
+    if (money >= 150 && stations.length > 0) {
+        money -= 150;
+        const [sx, sy] = stations[Math.floor(Math.random() * stations.length)].split(',').map(Number);
+        trains.push({
+            x: sx * TILE + TILE / 2, y: sy * TILE + TILE / 2,
+            dir: {x: 1, y: 0}, lastGx: sx, lastGy: sy,
+            history: Array(45).fill({x: sx * TILE + TILE / 2, y: sy * TILE + TILE / 2})
+        });
+        updateUI();
+        saveGame();
+    }
+}
+
+function updateUI() {
+    document.getElementById('money').innerText = money;
+    document.getElementById('orient-ui').innerText = orientation === 'H' ? "Z: VÍA HORIZONTAL" : "Z: VÍA VERTICAL";
+    document.getElementById('village-count').innerText = placedVillageCount;
+}
+
+function drawVillage(v) {
+    const vx = v.x - cam.x, vy = v.y - cam.y;
+    if (vx < -TILE * 6 || vx > canvas.width + TILE * 6 || vy < -TILE * 6 || vy > canvas.height + TILE * 6) return;
+
+    ctx.fillStyle = "#2d4a1e";
+    ctx.beginPath();
+    ctx.roundRect(vx - 160, vy - 160, 320, 320, 16);
+    ctx.fill();
+
+    ctx.fillStyle = "#3a5c28";
+    ctx.beginPath();
+    ctx.roundRect(vx - 160, vy - 160, 320, 320, 16);
+    ctx.fill();
+
+    v.buildings.forEach(b => {
+        ctx.fillStyle = b.color;
+        ctx.fillRect(vx + b.ox, vy + b.oy, b.w, b.h);
+        ctx.fillStyle = b.roof;
+        ctx.beginPath();
+        ctx.moveTo(vx + b.ox - 3, vy + b.oy);
+        ctx.lineTo(vx + b.ox + b.w / 2, vy + b.oy - 18);
+        ctx.lineTo(vx + b.ox + b.w + 3, vy + b.oy);
+        ctx.closePath();
+        ctx.fill();
+    });
+
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(vx - 50, vy + 130, 100, 22);
+    ctx.fillStyle = "#f1c40f";
+    ctx.font = "bold 11px Segoe UI";
+    ctx.textAlign = "center";
+    ctx.fillText(v.name, vx, vy + 146);
+}
+
+function drawPreviewVillage() {
+    if (tool !== 'VIL') return;
+    const gx = Math.floor((mousePos.x + cam.x) / TILE);
+    const gy = Math.floor((mousePos.y + cam.y) / TILE);
+    const px = gx * TILE - cam.x + TILE / 2;
+    const py = gy * TILE - cam.y + TILE / 2;
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = "#8e44ad";
+    ctx.beginPath();
+    ctx.roundRect(px - 160, py - 160, 320, 320, 16);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#9b59b6";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.roundRect(px - 160, py - 160, 320, 320, 16);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#f1c40f";
+    ctx.font = "bold 13px Segoe UI";
+    ctx.textAlign = "center";
+    ctx.fillText("PUEBLO ($1000)", px, py);
+}
+
+function drawRealisticRail(x, y, obj) {
+    const cx = x * TILE - cam.x, cy = y * TILE - cam.y;
+    const dir = obj.dir || 'H';
+    ctx.fillStyle = obj.type === 'TUN' ? "#111" : "#4a4a4a";
+    ctx.fillRect(cx, cy, TILE, TILE);
+    if (dir === 'H') {
+        if (obj.type !== 'TUN') {
+            ctx.fillStyle = "#3e2723";
+            for (let i = 5; i < TILE; i += 12) ctx.fillRect(cx + i, cy + 18, 4, 44);
+        }
+        ctx.strokeStyle = "#999"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx, cy + 23); ctx.lineTo(cx + TILE, cy + 23);
+        ctx.moveTo(cx, cy + 53); ctx.lineTo(cx + TILE, cy + 53); ctx.stroke();
+    } else {
+        if (obj.type !== 'TUN') {
+            ctx.fillStyle = "#3e2723";
+            for (let i = 5; i < TILE; i += 12) ctx.fillRect(cx + 18, cy + i, 44, 4);
+        }
+        ctx.strokeStyle = "#999"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx + 23, cy); ctx.lineTo(cx + 23, cy + TILE);
+        ctx.moveTo(cx + 53, cy); ctx.lineTo(cx + 53, cy + TILE); ctx.stroke();
+    }
+    if (obj.type === 'EST') {
+        ctx.fillStyle = "#c0392b";
+        if (dir === 'H') ctx.fillRect(cx, cy, TILE, 14); else ctx.fillRect(cx, cy, 14, TILE);
+    }
+}
+
+function drawTrain(t) {
+    for (let i = 1; i <= 2; i++) {
+        let pos = t.history[i * 18];
+        if (!pos) continue;
+        ctx.save(); ctx.translate(pos.x - cam.x, pos.y - cam.y);
+        ctx.fillStyle = "#4e342e"; ctx.fillRect(-18, -12, 36, 24); ctx.restore();
+    }
+    ctx.save();
+    ctx.translate(t.x - cam.x, t.y - cam.y);
+    ctx.rotate(Math.atan2(t.dir.y, t.dir.x));
+    ctx.fillStyle = "#111"; ctx.fillRect(-22, -14, 48, 28);
+    ctx.fillStyle = "#c0392b"; ctx.fillRect(-24, -16, 18, 32);
+    ctx.fillStyle = "#000"; ctx.fillRect(15, -6, 12, 12);
+    if (Math.random() > 0.5) particles.push({ x: t.x + t.dir.x * 20, y: t.y + t.dir.y * 20, r: 5, o: 1 });
+    ctx.restore();
+}
+
+function updateTrains() {
+    trains.forEach(t => {
+        t.x += t.dir.x * 2.5; t.y += t.dir.y * 2.5;
+        t.history.unshift({ x: t.x, y: t.y });
+        if (t.history.length > 60) t.history.pop();
+        let gx = Math.floor(t.x / TILE), gy = Math.floor(t.y / TILE);
+        if (gx !== t.lastGx || gy !== t.lastGy) {
+            villages.filter(v => v.isPlaced).forEach(v => {
+                if (Math.hypot(v.x - t.x, v.y - t.y) < 280 && !v.lastIncomes[trains.indexOf(t)]) {
+                    money += 50; updateUI(); saveGame();
+                    showIncome(v.x - cam.x, v.y - cam.y);
+                    v.lastIncomes[trains.indexOf(t)] = true;
+                    setTimeout(() => { v.lastIncomes[trains.indexOf(t)] = false; }, 2000);
+                }
+            });
+            const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+            let possible = dirs.filter(d => world[`${gx + d.x},${gy + d.y}`] && (d.x !== -t.dir.x || d.y !== -t.dir.y));
+            if (possible.length > 0) t.dir = possible[Math.floor(Math.random() * possible.length)];
+            else { t.dir.x *= -1; t.dir.y *= -1; }
+            t.lastGx = gx; t.lastGy = gy;
+        }
+    });
+}
+
+function showIncome(x, y) {
+    let p = document.createElement('div'); p.className = 'income-pop'; p.innerText = '+$50';
+    p.style.left = (x + 280) + 'px'; p.style.top = y + 'px';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1500);
+}
+
+function placeVillage(gx, gy) {
+    if (money < 1000) return;
+    const wx = gx * TILE + TILE / 2;
+    const wy = gy * TILE + TILE / 2;
+    for (let v of villages) {
+        if (v.isPlaced && Math.hypot(v.x - wx, v.y - wy) < 350) return;
+    }
+    money -= 1000;
+    const name = VILLAGE_NAMES[placedVillageCount % VILLAGE_NAMES.length] +
+        (placedVillageCount >= VILLAGE_NAMES.length ? ` ${Math.floor(placedVillageCount / VILLAGE_NAMES.length) + 1}` : '');
+    villages.push({
+        x: wx, y: wy,
+        name: name,
+        isPlaced: true,
+        buildings: createVillageBuildings(),
+        lastIncomes: {}
+    });
+    placedVillageCount++;
+    updateUI();
+    saveGame();
+}
+
+function loop() {
+    canvas.width = window.innerWidth - 280;
+    canvas.height = window.innerHeight;
+    ctx.fillStyle = "#223d14";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    villages.filter(v => v.isPlaced).forEach(v => drawVillage(v));
+
+    for (let key in world) {
+        let [x, y] = key.split(',').map(Number);
+        drawRealisticRail(x, y, world[key]);
+    }
+
+    particles.forEach((p, i) => {
+        ctx.fillStyle = `rgba(200,200,200,${p.o})`;
+        ctx.beginPath(); ctx.arc(p.x - cam.x, p.y - cam.y, p.r, 0, Math.PI * 2); ctx.fill();
+        p.y -= 0.8; p.o -= 0.01; p.r += 0.3;
+        if (p.o <= 0) particles.splice(i, 1);
+    });
+
+    updateTrains();
+    trains.forEach(drawTrain);
+    drawPreviewVillage();
+
+    requestAnimationFrame(loop);
+}
+
+window.addEventListener('keydown', (e) => {
+    const speed = 80;
+    if (e.key === 'ArrowUp') cam.y -= speed;
+    if (e.key === 'ArrowDown') cam.y += speed;
+    if (e.key === 'ArrowLeft') cam.x -= speed;
+    if (e.key === 'ArrowRight') cam.x += speed;
+    if (e.key.toLowerCase() === 'z') { orientation = (orientation === 'H') ? 'V' : 'H'; updateUI(); }
+    if (e.key.toLowerCase() === 'e') {
+        const gx = Math.floor((mousePos.x + cam.x) / TILE);
+        const gy = Math.floor((mousePos.y + cam.y) / TILE);
+        if (money >= 1200) {
+            if (orientation === 'H') {
+                world[`${gx - 1},${gy}`] = { type: 'TUN', dir: 'H' };
+                world[`${gx},${gy}`] = { type: 'EST', dir: 'H' };
+                world[`${gx + 1},${gy}`] = { type: 'TUN', dir: 'H' };
+            } else {
+                world[`${gx},${gy - 1}`] = { type: 'TUN', dir: 'V' };
+                world[`${gx},${gy}`] = { type: 'EST', dir: 'V' };
+                world[`${gx},${gy + 1}`] = { type: 'TUN', dir: 'V' };
+            }
+            money -= 1200; updateUI(); saveGame();
+        }
+    }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mousePos.x = e.clientX - rect.left;
+    mousePos.y = e.clientY - rect.top;
+});
+
+canvas.onmousedown = (e) => {
+    const gx = Math.floor((mousePos.x + cam.x) / TILE);
+    const gy = Math.floor((mousePos.y + cam.y) / TILE);
+    if (e.button === 0) {
+        if (tool === 'VIL') {
+            placeVillage(gx, gy);
+        } else {
+            let cost = tool === 'VIA' ? 50 : tool === 'EST' ? 200 : 500;
+            if (money >= cost) {
+                world[`${gx},${gy}`] = { type: tool, dir: orientation };
+                money -= cost; updateUI(); saveGame();
+            }
+        }
+    } else {
+        delete world[`${gx},${gy}`];
+        saveGame();
+    }
+};
+
+canvas.oncontextmenu = (e) => e.preventDefault();
+
+loadGame();
+loop();
+</script>
+</body>
+</html>
