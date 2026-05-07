@@ -1,1 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Unbl*cked</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1117;
+      --panel: #161a22;
+      --panel-2: #1c2230;
+      --text: #f2f4f8;
+      --muted: #b8c0d1;
+      --accent: #ff4d4f;
+      --accent-2: #ff6b6d;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 16px 40px rgba(0,0,0,.35);
+    }
 
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(255,77,79,.12), transparent 35%),
+        linear-gradient(180deg, #0b0d12 0%, #10131a 100%);
+      color: var(--text);
+      font-family: "Roboto", sans-serif;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 18px;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .brand {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 3rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+    }
+
+    .brand h1 span {
+      color: var(--accent);
+    }
+
+    .brand p {
+      margin: 12px auto 0;
+      max-width: 620px;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .top {
+      padding: 28px;
+      background: linear-gradient(180deg, rgba(255,255,255,.03), transparent);
+    }
+
+    .label {
+      display: block;
+      font-size: 1.05rem;
+      font-weight: 500;
+      margin-bottom: 12px;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    input[type="text"] {
+      flex: 1 1 420px;
+      min-width: 240px;
+      padding: 16px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      outline: none;
+      font-size: 1rem;
+      transition: .2s ease;
+    }
+
+    input[type="text"]::placeholder {
+      color: #7f889a;
+    }
+
+    input[type="text"]:focus {
+      border-color: rgba(255,77,79,.65);
+      box-shadow: 0 0 0 4px rgba(255,77,79,.12);
+    }
+
+    .submit-button {
+      padding: 16px 22px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(180deg, var(--accent), #e53b3d);
+      color: white;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .15s ease, filter .15s ease;
+      min-width: 130px;
+    }
+
+    .submit-button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    .submit-button:active {
+      transform: translateY(0);
+    }
+
+    .result {
+      padding: 0 28px 28px;
+      display: none;
+    }
+
+    .player {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 0;
+      border-radius: 18px;
+      background: #000;
+      display: block;
+    }
+
+    .instructions {
+      padding: 28px;
+      border-top: 1px solid var(--border);
+      background: rgba(255,255,255,.015);
+    }
+
+    .instructions hr {
+      border: 0;
+      border-top: 1px solid rgba(255,255,255,.12);
+      width: 30%;
+      margin: 0 auto 18px;
+    }
+
+    .instructions h3 {
+      margin: 0 0 10px;
+      text-align: center;
+      font-size: 1.2rem;
+    }
+
+    .instructions p {
+      margin: 0 auto 12px;
+      max-width: 620px;
+      color: var(--muted);
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .instructions ul {
+      margin: 18px auto 0;
+      padding: 0;
+      list-style: none;
+      max-width: 560px;
+      color: var(--muted);
+    }
+
+    .instructions li {
+      padding: 10px 0;
+      border-top: 1px solid rgba(255,255,255,.06);
+      text-align: center;
+    }
+
+    .small {
+      margin-top: 18px;
+      font-size: .92rem;
+      color: #9aa4b7;
+      text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      .brand h1 { font-size: 2.25rem; }
+      .top, .instructions, .result { padding-left: 18px; padding-right: 18px; }
+      .submit-button { width: 100%; }
+      input[type="text"] { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <h1>YouTube Unbl<span>*</span>cked</h1>
+      <p>Use to get around blocks, and watch YouTube without ads and mostly tracker free. Just paste in the link and click Watch!</p>
+    </div>
+
+    <div class="card">
+      <div class="top">
+        <label class="label" for="url">Insert YouTube Link:</label>
+        <div class="input-row">
+          <input id="url" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+          <button id="submit" class="submit-button">Watch</button>
+        </div>
+      </div>
+
+      <div class="result" id="result">
+        <iframe
+          id="player"
+          class="player"
+          src=""
+          title="YouTube player"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+        ></iframe>
+      </div>
+
+      <div class="instructions">
+        <hr>
+        <h3>About</h3>
+        <p>
+          This page takes a YouTube link, extracts the video ID, and opens it in an embedded player.
+          It keeps the layout simple, centered, and easy to use on desktop and mobile.
+        </p>
+
+        <ul>
+          <li>Paste a valid YouTube URL.</li>
+          <li>Click Watch to load the video.</li>
+          <li>The player will appear below the form.</li>
+        </ul>
+
+        <div class="small">Built with HTML, CSS, and JavaScript</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const urlInput = document.getElementById('url');
+    const submitBtn = document.getElementById('submit');
+    const result = document.getElementById('result');
+    const player = document.getElementById('player');
+
+    function getVideoId(url) {
+      try {
+        const u = new URL(url.trim());
+        if (u.hostname.includes('youtu.be')) return u.pathname.slice(1);
+        if (u.hostname.includes('youtube.com')) {
+          if (u.searchParams.get('v')) return u.searchParams.get('v');
+          const parts = u.pathname.split('/');
+          const embedIndex = parts.indexOf('embed');
+          if (embedIndex !== -1 && parts[embedIndex + 1]) return parts[embedIndex + 1];
+          const shortsIndex = parts.indexOf('shorts');
+          if (shortsIndex !== -1 && parts[shortsIndex + 1]) return parts[shortsIndex + 1];
+        }
+      } catch (e) {
+        return null;
+      }
+      return null;
+    }
+
+    function watchVideo() {
+      const id = getVideoId(urlInput.value);
+      if (!id) {
+        alert('Please paste a valid YouTube link.');
+        return;
+      }
+
+      player.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
+      result.style.display = 'block';
+      result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    submitBtn.addEventListener('click', watchVideo);
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') watchVideo();
+    });
+  </script>
+</body>
+</html>
