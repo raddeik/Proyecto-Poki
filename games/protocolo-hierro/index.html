@@ -1,1 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Protocolo Hierro: Pausa Google</title>
+    <link href="https://fonts.googleapis.com" rel="stylesheet">
+    <style>
+        :root { --gold: #ffcc00; --iron: #bdc3c7; --camo: #4b5320; --red: #b22222; --blue: #1e90ff; --heal: #2ecc71; --orange: #ff6600; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Lilita One', cursive; text-transform: uppercase; }
+        body { background: #1a1a1a; color: white; overflow: hidden; height: 100vh; cursor: crosshair; }
 
+        #world { position: absolute; width: 3000px; height: 2000px; background: #96836d; background-image: radial-gradient(#7a6955 10%, transparent 10%); background-size: 50px 50px; }
+        
+        /* TANQUE JUGADOR */
+        .tank-container { position: absolute; width: 80px; height: 80px; z-index: 10; transition: transform 0.1s; }
+        .tank-body { width: 100%; height: 100%; background: var(--camo); border: 4px solid #1b1f0b; border-radius: 10px; }
+        .tank-turret { position: absolute; top: 15%; left: 15%; width: 70%; height: 70%; background: #5d672d; border: 3px solid #1b1f0b; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .tank-barrel { position: absolute; width: 50px; height: 10px; background: #3e441a; border: 3px solid #1b1f0b; left: 80%; }
+
+        /* SOLDADOS (AZULES Y ROJOS) */
+        .soldier { position: absolute; width: 50px; height: 50px; z-index: 5; transition: transform 0.1s; }
+        .soldier-body { width: 28px; height: 28px; border-radius: 5px; border: 2px solid #222; position: relative; }
+        .soldier-head { position: absolute; top: -8px; left: 4px; width: 16px; height: 16px; background: #5d4037; border-radius: 50%; border: 2px solid #111; }
+        .soldier-gun { position: absolute; right: -12px; top: 10px; width: 22px; height: 6px; background: #111; }
+        .enemy .soldier-body { background: var(--red); box-shadow: 0 0 10px red; }
+        .ally .soldier-body { background: var(--blue); box-shadow: 0 0 10px var(--blue); }
+
+        /* INTERFAZ */
+        .hud { position: fixed; top: 20px; left: 20px; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 10px; border: 2px solid white; z-index: 100; width: 320px; display: none; }
+        .bar-bg { width: 100%; height: 14px; background: #222; border: 1px solid #fff; margin: 4px 0 8px 0; overflow: hidden; }
+        #hp-fill { width: 100%; height: 100%; background: var(--heal); transition: width 0.3s; }
+        #missile-fill { width: 0%; height: 100%; background: var(--orange); }
+        #skill-fill { width: 0%; height: 100%; background: var(--blue); }
+
+        /* PANTALLA DE PAUSA (TU IMAGEN) */
+        #pause-screen { 
+            position: fixed; inset: 0; z-index: 500; display: none; 
+            background: url('https://i.imgur.com') no-repeat center center; 
+            background-size: cover; 
+        }
+
+        .screen { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; text-align: center; }
+        .play-btn { margin-top: 20px; padding: 15px 40px; font-size: 2rem; background: var(--gold); border: 5px solid #000; cursor: pointer; border-radius: 10px; }
+        
+        .bullet { position: absolute; border-radius: 5px; z-index: 15; }
+        .p-bullet { width: 20px; height: 8px; background: #fff; border: 2px solid #000; }
+        .e-bullet { width: 12px; height: 12px; background: #ff4400; border-radius: 50%; border: 2px solid #fff; }
+        .missile-bullet { width: 25px; height: 10px; background: var(--orange); border-radius: 10px; box-shadow: 0 0 10px orange; border: 1px solid black; }
+        
+        .gem { position: absolute; width: 30px; height: 30px; background: #00f2ff; border: 2px solid #fff; transform: rotate(45deg); z-index: 6; }
+        .potion { position: absolute; width: 35px; height: 35px; background: #e74c3c; border: 3px solid #fff; border-radius: 50%; z-index: 6; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    </style>
+</head>
+<body>
+
+    <div class="hud" id="game-hud">
+        BLINDAJE: <div class="bar-bg"><div id="hp-fill"></div></div>
+        MISILES [Q]: <div class="bar-bg"><div id="missile-fill"></div></div>
+        REFUERZOS [CLIC]: <div class="bar-bg"><div id="skill-fill"></div></div>
+        BAJAS: <span id="kill-txt">0</span> | FASE: <span id="phase-txt">1</span> | GEMAS: <span id="gem-txt">0</span>
+    </div>
+
+    <!-- Capa de Pausa -->
+    <div id="pause-screen"></div>
+
+    <div id="menu" class="screen">
+        <h1 style="font-size: 4.5rem; color: var(--gold);">Protocolo Hierro</h1>
+        <p>E / ESPACIO: DISPARAR | ESC: PAUSA / TRADUCIR | CLIC: ALIADOS</p>
+        <button class="play-btn" onclick="startGame()">INICIAR OPERACIÓN</button>
+    </div>
+
+    <div id="game-over" class="screen" style="display:none;">
+        <h1 style="color: #ff4400; font-size: 3rem;">MISION FALLIDA</h1>
+        <button class="play-btn" onclick="location.reload()">REINTENTAR</button>
+    </div>
+
+    <div id="world">
+        <div id="player" class="tank-container">
+            <div class="tank-body"><div class="tank-turret"><div class="tank-barrel"></div></div></div>
+        </div>
+    </div>
+
+    <script>
+        let gameActive = false, isPaused = false, phase = 1, gems = 0, totalKills = 0, playerHP = 100, skillCharge = 0, missileCharge = 0;
+        let playerPos = { x: 1500, y: 1000 }, currentRotation = 0, tankSpeed = 22;
+        let spawnRate = 4000, enemyDamage = 25, enemySpeed = 1.6, shootRate = 2500, gemRate = 2000;
+        let enemies = [], allies = [], items = [], spawnInterval, gemInterval;
+        const world = document.getElementById('world');
+
+        function startGame() {
+            gameActive = true;
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('game-hud').style.display = 'block';
+            updateSpawnTimer();
+            updateGemTimer();
+            
+            setInterval(() => { 
+                if(gameActive && !isPaused) {
+                    if(skillCharge < 100) skillCharge += 2.5; 
+                    if(missileCharge < 100) missileCharge += 3.33; 
+                    updateHUD();
+                }
+            }, 100);
+
+            updateCamera();
+            requestAnimationFrame(updateLoop);
+        }
+
+        function togglePause() {
+            if(!gameActive) return;
+            isPaused = !isPaused;
+            document.getElementById('pause-screen').style.display = isPaused ? 'block' : 'none';
+            if(!isPaused) requestAnimationFrame(updateLoop);
+        }
+
+        function updateHUD() {
+            document.getElementById('hp-fill').style.width = playerHP + '%';
+            document.getElementById('skill-fill').style.width = skillCharge + '%';
+            document.getElementById('missile-fill').style.width = missileCharge + '%';
+            document.getElementById('kill-txt').innerText = totalKills;
+            document.getElementById('gem-txt').innerText = gems;
+            document.getElementById('phase-txt').innerText = phase;
+        }
+
+        function createSoldierDiv(type) {
+            const div = document.createElement('div');
+            div.className = `soldier ${type}`;
+            div.innerHTML = `<div class="soldier-body"><div class="soldier-head"></div><div class="soldier-gun"></div></div>`;
+            return div;
+        }
+
+        function spawnEnemy() {
+            if(!gameActive || isPaused) return;
+            const div = createSoldierDiv('enemy');
+            const angle = Math.random() * Math.PI * 2;
+            const x = playerPos.x + Math.cos(angle) * 800, y = playerPos.y + Math.sin(angle) * 800;
+            div.style.left = x + 'px'; div.style.top = y + 'px';
+            world.appendChild(div);
+            enemies.push({ el: div, x, y, lastShot: 0 });
+        }
+
+        function updateSpawnTimer() {
+            if(spawnInterval) clearInterval(spawnInterval);
+            spawnInterval = setInterval(() => { if(!isPaused) spawnEnemy(); }, spawnRate);
+        }
+
+        function updateGemTimer() {
+            if(gemInterval) clearInterval(gemInterval);
+            gemInterval = setInterval(() => { if(!isPaused) spawnItem(); }, gemRate);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if(e.key === 'Escape') togglePause();
+            if(!gameActive || isPaused) return;
+
+            const k = e.key.toLowerCase();
+            let moved = false;
+            if(k === 'w' || e.key === 'ArrowUp') { playerPos.y -= tankSpeed; currentRotation = -90; moved = true; }
+            else if(k === 's' || e.key === 'ArrowDown') { playerPos.y += tankSpeed; currentRotation = 90; moved = true; }
+            else if(k === 'a' || e.key === 'ArrowLeft') { playerPos.x -= tankSpeed; currentRotation = 180; moved = true; }
+            else if(k === 'd' || e.key === 'ArrowRight') { playerPos.x += tankSpeed; currentRotation = 0; moved = true; }
+            
+            if(moved) {
+                updateCamera();
+                playerPos.x = Math.max(50, Math.min(2950, playerPos.x));
+                playerPos.y = Math.max(50, Math.min(1950, playerPos.y));
+            }
+            if(e.code === 'Space' || k === 'e') fire('player', playerPos);
+            if(k === 'q' && missileCharge >= 100) launchMissiles();
+        });
+
+        function fire(type, origin, target = null) {
+            if(isPaused) return;
+            const b = document.createElement('div');
+            b.className = 'bullet ' + (type === 'player' ? 'p-bullet' : type === 'missile' ? 'missile-bullet' : 'e-bullet');
+            let bx = origin.x + 30, by = origin.y + 35;
+            let angle = (type === 'player') ? currentRotation * (Math.PI / 180) : Math.atan2(target.y - by, target.x - bx);
+            const speed = (type === 'player') ? 22 : 10;
+            const vx = Math.cos(angle) * speed, vy = Math.sin(angle) * speed;
+            world.appendChild(b);
+
+            let bt = setInterval(() => {
+                if(isPaused) return;
+                bx += vx; by += vy;
+                b.style.left = bx + 'px'; b.style.top = by + 'px';
+                if(type === 'player' || type === 'missile' || type === 'ally') {
+                    enemies.forEach((en, i) => {
+                        if(Math.hypot(bx - en.x - 25, by - en.y - 25) < 35) {
+                            en.el.remove(); enemies.splice(i,1); b.remove(); clearInterval(bt);
+                            totalKills++; checkPhase(); updateHUD();
+                        }
+                    });
+                } else if(type === 'enemy') {
+                    if(Math.hypot(bx - playerPos.x - 40, by - playerPos.y - 40) < 40) {
+                        playerHP -= enemyDamage; updateHUD(); b.remove(); clearInterval(bt);
+                        if(playerHP <= 0) endGame();
+                    }
+                }
+                if(bx < 0 || bx > 3000 || by < 0 || by > 2000) { b.remove(); clearInterval(bt); }
+            }, 20);
+        }
+
+        function launchMissiles() {
+            missileCharge = 0;
+            for(let i=0; i<5; i++) {
+                setTimeout(() => {
+                    if(!gameActive || isPaused || enemies.length === 0) return;
+                    let target = enemies[Math.floor(Math.random() * enemies.length)];
+                    fire('player', playerPos, target);
+                }, i * 150);
+            }
+        }
+
+        function checkPhase() {
+            if(phase === 1 && gems >= 10) { phase = 2; spawnRate = 3000; enemySpeed = 2; updateSpawnTimer(); }
+            else if(phase === 2 && totalKills >= 50) { phase = 3; spawnRate = 2000; enemySpeed = 2.5; updateSpawnTimer(); }
+            else if(phase === 3 && totalKills >= 100) { phase = 4; spawnRate = 1000; enemySpeed = 3.2; updateSpawnTimer(); }
+        }
+
+        function updateLoop() {
+            if(!gameActive || isPaused) return;
+            document.getElementById('player').style.left = playerPos.x + 'px';
+            document.getElementById('player').style.top = playerPos.y + 'px';
+            document.getElementById('player').style.transform = `rotate(${currentRotation}deg)`;
+
+            enemies.forEach(en => {
+                const dx = playerPos.x - en.x, dy = playerPos.y - en.y, dist = Math.hypot(dx, dy);
+                en.x += (dx/dist) * enemySpeed; en.y += (dy/dist) * enemySpeed;
+                en.el.style.left = en.x + 'px'; en.el.style.top = en.y + 'px';
+                en.el.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+                if(dist < 500 && Date.now() - en.lastShot > shootRate) { fire('enemy', en, playerPos); en.lastShot = Date.now(); }
+            });
+
+            allies.forEach(al => {
+                const dx = al.destX - al.x, dy = al.destY - al.y, dist = Math.hypot(dx, dy);
+                if(dist > 5) {
+                    al.x += (dx/dist)*4; al.y += (dy/dist)*4;
+                    al.el.style.left = al.x + 'px'; al.el.style.top = al.y + 'px';
+                    al.el.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+                } else {
+                    let target = null, minDist = 400;
+                    enemies.forEach(en => {
+                        const d = Math.hypot(en.x - al.x, en.y - al.y);
+                        if(d < minDist) { minDist = d; target = en; }
+                    });
+                    if(target && Date.now() - al.lastShot > 1500) { fire('ally', al, target); al.lastShot = Date.now(); }
+                }
+            });
+
+            items.forEach((it, i) => {
+                if(Math.hypot(playerPos.x+40 - it.x, playerPos.y+40 - it.y) < 60) {
+                    if(it.type === 'gem') { gems++; checkPhase(); }
+                    else playerHP = Math.min(100, playerHP + 30);
+                    it.el.remove(); items.splice(i, 1); updateHUD();
+                }
+            });
+            requestAnimationFrame(updateLoop);
+        }
+
+        function spawnItem() {
+            if(!gameActive || isPaused) return;
+            const type = Math.random() > 0.85 ? 'potion' : 'gem';
+            const div = document.createElement('div'); div.className = type;
+            if(type === 'potion') div.innerText = '✚';
+            const x = Math.random()*2800+100, y = Math.random()*1800+100;
+            div.style.left = x+'px'; div.style.top = y+'px'; world.appendChild(div);
+            items.push({ el: div, x, y, type });
+        }
+
+        function updateCamera() {
+            world.style.left = (-playerPos.x + window.innerWidth/2) + 'px';
+            world.style.top = (-playerPos.y + window.innerHeight/2) + 'px';
+        }
+
+        function endGame() { gameActive = false; document.getElementById('game-over').style.display = 'flex'; }
+
+        window.addEventListener('mousedown', (e) => {
+            if(!gameActive || isPaused || skillCharge < 100) return;
+            skillCharge = 0; const rect = world.getBoundingClientRect();
+            const div = createSoldierDiv('ally');
+            world.appendChild(div);
+            allies.push({ el: div, x: playerPos.x, y: playerPos.y, destX: e.clientX-rect.left-25, destY: e.clientY-rect.top-25, lastShot: 0 });
+        });
+    </script>
+</body>
+</html>
