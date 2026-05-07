@@ -1,1 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>SpaceX Turbo - Ultimate Star Map</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', sans-serif; color: #00f2ff; }
+        canvas { border: 2px solid #00f2ff; background: #000; box-shadow: 0 0 60px #000; }
+        .pantalla { position: absolute; text-align: center; z-index: 10; display: none; flex-direction: column; align-items: center; justify-content: center; width: 900px; height: 700px; background: rgba(0,0,0,0.96); border: 1px solid #00f2ff; border-radius: 15px; }
+        
+        /* MAPA MEJORADO */
+        #mapa { padding: 20px; }
+        #mapa h2 { font-size: 35px; letter-spacing: 5px; margin-bottom: 30px; text-shadow: 0 0 15px #00f2ff; }
+        .grid-niveles { display: grid; grid-template-columns: repeat(10, 1fr); gap: 12px; background: rgba(0, 242, 255, 0.05); padding: 25px; border-radius: 15px; border: 1px solid #004455; }
+        
+        .nivel-btn { width: 55px; height: 50px; border: 2px solid #111; display: flex; align-items: center; justify-content: center; cursor: default; color: #222; font-weight: bold; font-size: 18px; border-radius: 8px; transition: 0.3s; background: #050505; }
+        .desbloqueado { border-color: #00f2ff; color: #00f2ff; cursor: pointer; box-shadow: 0 0 10px rgba(0, 242, 255, 0.3); }
+        .desbloqueado:hover { background: #00f2ff; color: #000; box-shadow: 0 0 25px #00f2ff; transform: scale(1.1); }
+        .actual { border-color: #fff; background: #004455; color: #fff; box-shadow: 0 0 15px #fff; animation: palpitar 1.5s infinite; }
+        .boss-btn { border-color: #ff0044; color: #ff0044; box-shadow: 0 0 10px rgba(255, 0, 68, 0.4); }
+        .boss-btn.desbloqueado:hover { background: #ff0044; color: #fff; box-shadow: 0 0 30px #ff0044; }
 
+        @keyframes palpitar { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        /* HUD Y OTROS */
+        .monedas-top { position: absolute; top: 25px; right: 35px; font-size: 28px; font-weight: bold; color: #ffea00; text-shadow: 0 0 15px #ffea00; z-index: 100; }
+        .btn-lobby { background: rgba(0, 242, 255, 0.1); border: 2px solid #00f2ff; color: #00f2ff; padding: 15px; cursor: pointer; transition: 0.3s; font-weight: bold; text-transform: uppercase; border-radius: 5px; width: 320px; margin: 5px; }
+        .btn-lobby:hover { background: #00f2ff; color: #000; }
+        #hud { position: absolute; top: 15px; width: 860px; display: flex; justify-content: space-between; font-weight: bold; pointer-events: none; z-index: 5; font-family: monospace; }
+        .barra-vida { width: 200px; height: 12px; border: 1px solid #00f2ff; background: #001525; }
+        #vidaFill { width: 100%; height: 100%; background: #00f2ff; transition: 0.2s; }
+    </style>
+</head>
+<body>
+
+    <div id="hud">
+        <div>SECTOR <span id="txtNivel">1</span> | 🪙 <span id="txtMonedasHUD">0</span></div>
+        <div style="display: flex; align-items: center; gap: 10px;">ESCUDO <div class="barra-vida"><div id="vidaFill"></div></div></div>
+    </div>
+
+    <!-- LOBBY -->
+    <div id="inicio" class="pantalla" style="display: flex;">
+        <div class="monedas-top">🪙: <span class="valMonedas">0</span></div>
+        <h1 style="font-size: 80px; text-shadow: 0 0 30px #00f2ff;">SPACEX</h1>
+        <button class="btn-lobby" onclick="iniciarNivel(nivelMaximo)">🚀 DESPEGAR</button>
+        <button class="btn-lobby" onclick="abrirMapa()">🗺️ MAPA ESTELAR</button>
+        <button class="btn-lobby" onclick="abrirTienda()">🛒 TIENDA</button>
+        <div style="margin-top: 20px;">
+            <input type="text" id="inputCodigo" placeholder="CÓDIGO" style="background:#001525; border:1px solid #00f2ff; color:#fff; padding:8px; border-radius:5px;">
+            <button onclick="validarCodigo()" style="background:#00f2ff; border:none; padding:8px 15px; cursor:pointer; font-weight:bold; border-radius:5px;">OK</button>
+        </div>
+    </div>
+
+    <!-- MAPA ESTELAR AMPLIADO -->
+    <div id="mapa" class="pantalla">
+        <h2>NAVEGACIÓN DE SECTORES</h2>
+        <div id="gridNiveles" class="grid-niveles"></div>
+        <button class="btn-lobby" onclick="irALobby()" style="width:200px; margin-top:30px;">VOLVER AL HANGAR</button>
+    </div>
+
+    <!-- OTRAS PANTALLAS -->
+    <div id="tienda" class="pantalla">
+        <div class="monedas-top">🪙: <span class="valMonedas">0</span></div>
+        <h2>HANGAR DE ÉLITE</h2>
+        <div id="gridTienda" style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px;"></div>
+        <button onclick="irALobby()" class="btn-lobby" style="width:200px; margin-top:15px;">VOLVER</button>
+    </div>
+    <div id="gameOver" class="pantalla"><h2 style="color:#ff0055; font-size:50px;">DESTRUIDO</h2><button class="btn-lobby" onclick="iniciarNivel(nivelActual)">REINTENTAR</button><button class="btn-lobby" onclick="irALobby()">LOBBY</button></div>
+    <div id="victoria" class="pantalla"><h2 style="color:#00f2ff; font-size:50px;">SECTOR LIBRE</h2><button class="btn-lobby" onclick="iniciarNivel(nivelActual + 1)">SIGUIENTE</button><button class="btn-lobby" onclick="irALobby()">LOBBY</button></div>
+
+    <canvas id="juego"></canvas>
+
+<script>
+    const canvas = document.getElementById("juego");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 900; canvas.height = 700;
+
+    let juegoCorriendo = false, nivelActual = 1, nivelMaximo = 1, monedas = 0, kills = 0, golpes = 0;
+    let nave = { x: 430, y: 550, w: 34, h: 38, vel: 7.5, tipo: 0 };
+    let lasersJ = [], lasersE = [], enemigos = [], estrellas = [], nebulaColor = "", teclas = {};
+
+    const catalogo = [
+        { id: 0, nombre: "ALPHA-1", precio: 0, comprada: true, color: "#00f2ff", desc: "Doble Láser" },
+        { id: 1, nombre: "VIPER", precio: 20, comprada: false, color: "#00ff44", desc: "Ráfaga Veloz" },
+        { id: 2, nombre: "FALCON", precio: 30, comprada: false, color: "#ff00ff", desc: "Triple Abanico" },
+        { id: 3, nombre: "WRAITH", precio: 35, comprada: false, color: "#ff8800", desc: "Cañón Pesado" },
+        { id: 4, nombre: "NEBULA", precio: 40, comprada: false, color: "#0088ff", desc: "Láser Alterno" },
+        { id: 5, nombre: "TITAN", precio: 45, comprada: false, color: "#ffffff", desc: "Pulso Giga" },
+        { id: 6, nombre: "REAPER", precio: 50, comprada: false, color: "#ff0000", desc: "Disparo en X" },
+        { id: 7, nombre: "Ω PHOENIX", precio: 60, comprada: false, color: "#ffea00", desc: "Tormenta Ω" }
+    ];
+
+    function validarCodigo() {
+        if(document.getElementById("inputCodigo").value.trim().toLowerCase() === "esteeselmejorjuego") { 
+            monedas = 999999; actualizarUI(); alert("CHEAT ACTIVATED"); 
+        }
+    }
+
+    function dibujarNaveJugador(c, x, y, tipo, color) {
+        c.save(); c.shadowBlur = 15; c.shadowColor = color; c.strokeStyle = color; c.lineWidth = 2; c.fillStyle = "#050505";
+        switch(tipo) {
+            case 0: c.beginPath(); c.moveTo(x+17,y); c.lineTo(x,y+38); c.lineTo(x+17,y+28); c.lineTo(x+34,y+38); c.closePath(); c.fill(); c.stroke(); break;
+            case 1: c.beginPath(); c.moveTo(x+17,y); c.lineTo(x-5,y+35); c.lineTo(x+39,y+35); c.closePath(); c.fill(); c.stroke(); break;
+            case 2: c.beginPath(); c.moveTo(x+17,y+5); c.lineTo(x-8,y+20); c.lineTo(x+17,y+38); c.lineTo(x+42,y+20); c.closePath(); c.fill(); c.stroke(); break;
+            case 3: c.fillRect(x+8, y, 18, 30); c.strokeRect(x-2, y+15, 38, 8); break;
+            case 4: c.beginPath(); c.arc(x+17, y+20, 15, Math.PI, 0); c.lineTo(x+17, y+38); c.closePath(); c.fill(); c.stroke(); break;
+            case 5: c.fillRect(x, y+10, 34, 25); c.strokeRect(x+10, y, 14, 10); break;
+            case 6: c.beginPath(); c.moveTo(x,y); c.lineTo(x+10,y+35); c.lineTo(x+24,y+35); c.lineTo(x+34,y); c.stroke(); break;
+            case 7: c.beginPath(); c.moveTo(x+17,y-5); c.lineTo(x-12,y+32); c.lineTo(x+17,y+22); c.lineTo(x+46,y+32); c.closePath(); c.fill(); c.stroke(); break;
+        }
+        c.fillStyle = color; c.beginPath(); c.arc(x+17, y+18, 4, 0, Math.PI*2); c.fill(); c.restore();
+    }
+
+    function dibujarEnemigoV(c, x, y, color, escala = 1) {
+        c.save(); const w = 32*escala, h = 32*escala;
+        c.translate(x+w/2, y+h/2); c.rotate(Math.PI); c.translate(-(x+w/2), -(y+h/2));
+        c.shadowBlur = 15*escala; c.shadowColor = color; c.fillStyle = "#0a0000";
+        c.beginPath(); c.moveTo(x+w/2, y); c.lineTo(x, y+h); c.lineTo(x+w/2, y+h*0.4); c.lineTo(x+w, y+h); c.closePath(); c.fill();
+        c.strokeStyle = color; c.lineWidth = 2*escala; c.stroke();
+        c.fillStyle = color; c.beginPath(); c.arc(x+w/2, y+h*0.7, 3*escala, 0, Math.PI*2); c.fill(); c.restore();
+    }
+
+    function generarNivel() {
+        lasersJ = []; lasersE = []; enemigos = []; kills = 0;
+        const h = (nivelActual * 55) % 360; nebulaColor = `hsla(${h}, 50%, 4%, 0.7)`;
+        estrellas = []; for(let i=0; i<100; i++) estrellas.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, v: Math.random()*3+1, c: `hsl(${h}, 100%, 90%)`});
+        const esBoss = (nivelActual % 15 === 0 || nivelActual === 50);
+        if(esBoss) {
+            let vBoss = 150; if(nivelActual==30) vBoss=250; if(nivelActual==45) vBoss=400; if(nivelActual==50) vBoss=600;
+            enemigos.push({ x: 375, y: 50, w: 150, h: 150, vida: vBoss, boss: true, dir: 1, vel: 2, color: "#ff0044" });
+        } else {
+            const filas = 3 + Math.floor(nivelActual/8);
+            for(let f=0; f<filas; f++) for(let c=0; c<8; c++) enemigos.push({ x: 120+c*85, y: 60+f*65, w: 32, h: 32, baseX: 120+c*85, baseY: 60+f*65, dir: 1, vel: 0.8+(nivelActual*0.16), vida: 1+Math.floor(nivelActual/10), boss: false });
+        }
+    }
+
+    function disparar() {
+        const c = catalogo[nave.tipo].color;
+        const vy = -18;
+        switch(nave.tipo) {
+            case 0: lasersJ.push({x: nave.x-2, y: nave.y, w: 4, h: 15, vx:0, vy, c}); lasersJ.push({x: nave.x+32, y: nave.y, w: 4, h: 15, vx:0, vy, c}); break;
+            case 1: lasersJ.push({x: nave.x+15, y: nave.y, w: 3, h: 12, vx:0, vy:-25, c}); break;
+            case 2: [ -3, 0, 3].forEach(dx => lasersJ.push({x: nave.x+15, y: nave.y, w: 4, h: 12, vx:dx, vy, c})); break;
+            case 3: lasersJ.push({x: nave.x+12, y: nave.y, w: 10, h: 25, vx:0, vy:-12, c}); break;
+            case 4: let d = Date.now()%200<100 ? -5 : 35; lasersJ.push({x: nave.x+d, y: nave.y+10, w: 4, h: 15, vx:0, vy:-22, c}); break;
+            case 5: lasersJ.push({x: nave.x+7, y: nave.y-10, w: 20, h: 10, vx:0, vy:-20, c}); break;
+            case 6: lasersJ.push({x: nave.x-5, y: nave.y, w: 4, h: 15, vx:-2, vy, c}); lasersJ.push({x: nave.x+35, y: nave.y, w: 4, h: 15, vx:2, vy, c}); break;
+            case 7: [ -6, -3, 0, 3, 6].forEach(dx => lasersJ.push({x: nave.x+15, y: nave.y-10, w: 5, h: 20, vx:dx, vy:-22, c})); break;
+        }
+    }
+
+    function update() {
+        if(!juegoCorriendo) return;
+        if(teclas['ArrowLeft'] && nave.x > 10) nave.x -= nave.vel;
+        if(teclas['ArrowRight'] && nave.x < canvas.width - nave.w - 10) nave.x += nave.vel;
+        if(teclas['ArrowUp'] && nave.y > 10) nave.y -= nave.vel;
+        if(teclas['ArrowDown'] && nave.y < canvas.height - nave.h - 10) nave.y += nave.vel;
+
+        lasersJ.forEach((l, i) => { l.x += l.vx; l.y += l.vy; if(l.y < -50) lasersJ.splice(i, 1); });
+        enemigos.forEach((e, ei) => {
+            if(e.boss) {
+                e.x += e.dir * e.vel; if(e.x > 700 || e.x < 50) e.dir *= -1;
+                if(Math.random() < 0.1) { for(let i=-2; i<=2; i++) lasersE.push({x: e.x+e.w/2, y: e.y+e.h, w: 12, h: 12, vx: i*4, vy: 7, dmg: 5}); }
+            } else {
+                e.x += e.dir * e.vel; if(e.x > canvas.width-40 || e.x < 10) e.dir *= -1;
+                e.y = e.baseY + Math.sin(Date.now()*0.002 + ei)*30;
+                if(Math.random() < 0.005 + (nivelActual*0.0006)) lasersE.push({x: e.x+14, y: e.y+32, w: 4, h: 10, vx:0, vy:7, dmg:1});
+            }
+            lasersJ.forEach((l, li) => { if(l.x < e.x+e.w && l.x+l.w > e.x && l.y < e.y+e.h && l.y+l.h > e.y) { e.vida--; lasersJ.splice(li, 1); if(e.vida <= 0) { if(!e.boss) { kills++; if(kills >= 10) { monedas++; kills = 0; } } else { monedas += 100; } enemigos.splice(ei, 1); actualizarUI(); } } });
+        });
+        lasersE.forEach((le, i) => { le.x += (le.vx || 0); le.y += (le.vy || 7.5); if(le.x < nave.x+nave.w && le.x+le.w > nave.x && le.y < nave.y+nave.h && le.y+le.h > nave.y) { lasersE.splice(i, 1); golpes += (le.dmg || 1); actualizarUI(); if(golpes >= 10) { juegoCorriendo = false; document.getElementById("gameOver").style.display="flex"; } } });
+        if(enemigos.length === 0) { juegoCorriendo = false; if(nivelActual === nivelMaximo) nivelMaximo++; document.getElementById("victoria").style.display="flex"; }
+    }
+
+    function render() {
+        ctx.fillStyle = "#000"; ctx.fillRect(0,0, canvas.width, canvas.height);
+        ctx.fillStyle = nebulaColor; ctx.fillRect(0,0, canvas.width, canvas.height);
+        estrellas.forEach(s => { s.y += s.v; if(s.y > canvas.height) s.y = 0; ctx.fillStyle = s.c; ctx.fillRect(s.x, s.y, 1.5, 1.5); });
+        if(juegoCorriendo) {
+            update();
+            lasersJ.forEach(l => { ctx.fillStyle=l.c; ctx.shadowBlur=10; ctx.shadowColor=l.c; ctx.fillRect(l.x, l.y, l.w, l.h); });
+            lasersE.forEach(le => { ctx.fillStyle="#ff0044"; if(le.dmg > 1) { ctx.beginPath(); ctx.arc(le.x+6, le.y+6, 8, 0, Math.PI*2); ctx.fill(); } else ctx.fillRect(le.x, le.y, le.w, le.h); });
+            dibujarNaveJugador(ctx, nave.x, nave.y, nave.tipo, catalogo[nave.tipo].color);
+            enemigos.forEach(e => { if(e.boss) dibujarEnemigoV(ctx, e.x, e.y, e.color, 4.5); else dibujarEnemigoV(ctx, e.x, e.y, "#ff0055", 1); });
+        }
+        requestAnimationFrame(render);
+    }
+
+    function abrirMapa() {
+        document.getElementById("inicio").style.display = "none";
+        const grid = document.getElementById("gridNiveles"); grid.innerHTML = "";
+        for(let i=1; i<=50; i++) {
+            const isBoss = (i % 15 === 0 || i === 50);
+            const b = document.createElement("div"); b.innerText = i;
+            b.className = "nivel-btn " + (i <= nivelMaximo ? "desbloqueado " : "") + (isBoss ? "boss-btn " : "");
+            if(i === nivelActual && i <= nivelMaximo) b.classList.add("actual");
+            if(i <= nivelMaximo) b.onclick = () => iniciarNivel(i);
+            grid.appendChild(b);
+        }
+        document.getElementById("mapa").style.display = "flex";
+    }
+
+    function abrirTienda() {
+        document.getElementById("inicio").style.display = "none";
+        const grid = document.getElementById("gridTienda"); grid.innerHTML = "";
+        catalogo.forEach(n => {
+            const div = document.createElement("div"); div.className = "item-tienda";
+            const btnT = n.comprada ? (nave.tipo === n.id ? "EQUIPADA" : "EQUIPAR") : "COMPRAR";
+            div.innerHTML = `<div style="font-size:11px; font-weight:bold; color:${n.color}">${n.nombre}</div><div style="font-size:9px; color:#ffea00">${n.desc}</div><canvas id="canvPreview${n.id}" width="50" height="50"></canvas><div style="color:#ffea00; font-size:11px">🪙 ${n.precio}</div><button style="font-size:9px" ${!n.comprada && monedas < n.precio ? 'disabled' : ''} onclick="accionTienda(${n.id})">${btnT}</button>`;
+            grid.appendChild(div);
+            dibujarNaveJugador(document.getElementById("canvPreview" + n.id).getContext("2d"), 8, 5, n.id, n.color);
+        });
+        actualizarUI(); document.getElementById("tienda").style.display = "flex";
+    }
+
+    function accionTienda(id) { if(!catalogo[id].comprada && monedas >= catalogo[id].precio) { monedas -= catalogo[id].precio; catalogo[id].comprada = true; } else if(catalogo[id].comprada) nave.tipo = id; actualizarUI(); abrirTienda(); }
+    function iniciarNivel(n) { nivelActual = n; golpes = 0; generarNivel(); actualizarUI(); document.querySelectorAll('.pantalla').forEach(p => p.style.display='none'); juegoCorriendo = true; }
+    function actualizarUI() { document.getElementById("txtNivel").innerText = nivelActual; document.getElementById("txtMonedasHUD").innerText = monedas; document.querySelectorAll(".valMonedas").forEach(el => el.innerText = monedas); document.getElementById("vidaFill").style.width = (100 - (golpes * 10)) + "%"; }
+    function irALobby() { actualizarUI(); document.querySelectorAll('.pantalla').forEach(p => p.style.display='none'); document.getElementById("inicio").style.display='flex'; juegoCorriendo = false; }
+
+    window.addEventListener("keydown", e => { teclas[e.code]=true; if(e.code==="Space" && juegoCorriendo) disparar(); });
+    window.addEventListener("keyup", e => teclas[e.code]=false);
+    render();
+</script>
+</body>
+</html>
