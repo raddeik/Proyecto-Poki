@@ -1,1 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cookie Clicker: Hardcore Casino</title>
+    <style>
+        body { text-align: center; font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: white; margin: 0; padding: 20px; }
+        
+        .main-layout { display: flex; justify-content: space-around; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
 
+        /* GALLETA */
+        .cookie-section { flex: 1; min-width: 280px; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 20px; }
+        .cookie {
+            width: 200px; height: 200px; background: #8b4513; border-radius: 50%;
+            margin: 20px auto; cursor: pointer; border: 10px solid #a0522d;
+            box-shadow: 0 12px 0 #5d2e0a, 0 0 30px rgba(210, 105, 30, 0.4);
+            transition: transform 0.05s; display: flex; align-items: center; justify-content: center; font-size: 110px;
+        }
+        .cookie:active { transform: scale(0.92) translateY(5px); }
+
+        /* TIENDA (AHORA MÁS CARA Y CON MÁS ITEMS) */
+        .shop-section { flex: 1.5; background: #1e1e1e; padding: 20px; border-radius: 15px; border: 2px solid #333; max-height: 80vh; overflow-y: auto; }
+        .item { 
+            background: #2a2a2a; padding: 15px; margin: 10px 0; border-radius: 10px; 
+            display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #e67e22;
+        }
+        .item-info { text-align: left; }
+        .item-name { font-weight: bold; color: #f1c40f; }
+        .item-cost { color: #2ecc71; font-weight: bold; }
+        
+        button { background: #27ae60; border: none; color: white; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:disabled { background: #444; color: #777; }
+
+        /* TRAGAPERRAS (DERECHA) */
+        .slot-machine { 
+            flex: 1; min-width: 320px; background: #b01a1a; padding: 25px; border-radius: 25px; 
+            border: 8px solid #f1c40f; box-shadow: 0 0 40px rgba(241, 196, 15, 0.2);
+        }
+        .screen { background: #fff; display: flex; justify-content: center; gap: 10px; padding: 20px; border-radius: 15px; border: 6px solid #333; margin: 20px 0; }
+        .reel { width: 70px; height: 90px; background: #fdfdfd; display: flex; align-items: center; justify-content: center; font-size: 45px; border: 2px solid #ddd; border-radius: 5px; color: black; }
+        
+        .stats-main { font-size: 40px; color: #f1c40f; text-shadow: 3px 3px 0 #000; margin-bottom: 5px; }
+        .stats-sec { color: #bdc3c7; margin-bottom: 20px; font-size: 18px; }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 GALAXIA DE GALLETAS: EL CASINO 🚀</h1>
+    <div class="stats-main">🍪 <span id="count">0</span></div>
+    <div class="stats-sec">CPS: <span id="gps">0</span> | Clic: <span id="gpc">1</span></div>
+
+    <div class="main-layout">
+        
+        <!-- IZQUIERDA -->
+        <div class="cookie-section">
+            <div id="cookie" class="cookie">🍪</div>
+            <p>¡Haz clic para sobrevivir!</p>
+            <hr>
+            <button style="background:#2980b9" onclick="save()">💾 Guardar</button>
+        </div>
+
+        <!-- CENTRO: TIENDA EXPANDIDA -->
+        <div class="shop-section">
+            <h2 style="color:#f1c40f">TIENDA IMPERIAL</h2>
+            <div id="items-container"></div>
+        </div>
+
+        <!-- DERECHA -->
+        <div class="slot-machine">
+            <h2 style="margin:0; font-size: 1.2em; color: white;">🎰 SLOT LUCK (50 🍪)</h2>
+            <div class="screen">
+                <div id="r1" class="reel">💎</div>
+                <div id="r2" class="reel">💎</div>
+                <div id="r3" class="reel">💎</div>
+            </div>
+            <div id="slot-msg" style="height:30px; font-weight:bold; margin-bottom:10px;">¿Te sientes con suerte?</div>
+            <button id="slot-btn" style="width:100%; height:60px; background:#c0392b; font-size:20px;" onclick="spin()">🎰 JUGAR 🎰</button>
+        </div>
+
+    </div>
+
+    <script>
+        let cookies = 0;
+        let gpc = 1;
+        let gps = 0;
+        let isSpinning = false;
+
+        // Lista de cosas "MÁS CARAS" y "MÁS COSAS"
+        let upgrades = [
+            { id: 'c', name: 'Músculo de Dedo', desc: '+2 por clic', cost: 100, power: 2, type: 'click' },
+            { id: 'a', name: 'Abuela Cyborg', desc: '+1/seg', cost: 250, power: 1, type: 'auto' },
+            { id: 'f', name: 'Mega Fábrica', desc: '+12/seg', cost: 2000, power: 12, type: 'auto' },
+            { id: 'm', name: 'Mina Galáctica', desc: '+50/seg', cost: 15000, power: 50, type: 'auto' },
+            { id: 'l', name: 'Laboratorio Alquimista', desc: '+200/seg', cost: 120000, power: 200, type: 'auto' },
+            { id: 'p', name: 'Portal al Vacío', desc: '+1,500/seg', cost: 1000000, power: 1500, type: 'auto' },
+            { id: 'ant', name: 'Condensador Antimateria', desc: '+8,000/seg', cost: 25000000, power: 8000, type: 'auto' }
+        ];
+
+        function renderShop() {
+            const container = document.getElementById('items-container');
+            container.innerHTML = "";
+            upgrades.forEach(u => {
+                container.innerHTML += `
+                    <div class="item">
+                        <div class="item-info">
+                            <span class="item-name">${u.name}</span><br>
+                            <small>${u.desc}</small><br>
+                            <span class="item-cost">Precio: ${Math.floor(u.cost).toLocaleString()} 🍪</span>
+                        </div>
+                        <button id="btn-${u.id}" onclick="buy('${u.id}')">COMPRAR</button>
+                    </div>`;
+            });
+        }
+
+        function buy(id) {
+            let u = upgrades.find(x => x.id === id);
+            if (cookies >= u.cost) {
+                cookies -= u.cost;
+                if (u.type === 'click') gpc += u.power;
+                else gps += u.power;
+                u.cost = Math.round(u.cost * 1.85); // ESCALADO CARO (85%)
+                renderShop();
+                updateDisplay();
+            }
+        }
+
+        // LÓGICA TRAGAPERRAS (BARATA: 50)
+        function spin() {
+            if (cookies < 50 || isSpinning) return;
+            cookies -= 50;
+            isSpinning = true;
+            const emojis = ["🍒", "🍋", "🔔", "7️⃣", "💎", "🍪", "💩"];
+            const btn = document.getElementById('slot-btn');
+            btn.disabled = true;
+
+            let count = 0;
+            let timer = setInterval(() => {
+                document.getElementById('r1').innerText = emojis[Math.floor(Math.random() * emojis.length)];
+                document.getElementById('r2').innerText = emojis[Math.floor(Math.random() * emojis.length)];
+                document.getElementById('r3').innerText = emojis[Math.floor(Math.random() * emojis.length)];
+                count++;
+                if(count > 15) {
+                    clearInterval(timer);
+                    isSpinning = false;
+                    checkSlot();
+                }
+            }, 100);
+        }
+
+        function checkSlot() {
+            const r1 = document.getElementById('r1').innerText;
+            const r2 = document.getElementById('r2').innerText;
+            const r3 = document.getElementById('r3').innerText;
+            const msg = document.getElementById('slot-msg');
+
+            if (r1 === r2 && r2 === r3) {
+                let win = 1000;
+                if(r1 === "7️⃣") win = 10000;
+                if(r1 === "💩") { win = 0; cookies = 0; msg.innerText = "¡OH NO! ¡LO PERDISTE TODO!"; }
+                else { cookies += win; msg.innerText = "💰 ¡JACKPOT! +" + win; }
+            } else if (r1 === r2 || r2 === r3) {
+                cookies += 150;
+                msg.innerText = "¡Casi! Ganas 150 🍪";
+            } else {
+                msg.innerText = "Sigue intentando...";
+            }
+            updateDisplay();
+        }
+
+        document.getElementById('cookie').onclick = () => { cookies += gpc; updateDisplay(); };
+        setInterval(() => { cookies += gps; updateDisplay(); }, 1000);
+
+        function updateDisplay() {
+            document.getElementById('count').innerText = Math.floor(cookies).toLocaleString();
+            document.getElementById('gps').innerText = gps.toLocaleString();
+            document.getElementById('gpc').innerText = gpc;
+            upgrades.forEach(u => {
+                const b = document.getElementById(`btn-${u.id}`);
+                if(b) b.disabled = cookies < u.cost;
+            });
+            document.getElementById('slot-btn').disabled = cookies < 50 || isSpinning;
+        }
+
+        function save() { localStorage.setItem('cookieHard', JSON.stringify({c:cookies, g:gps, k:gpc, u:upgrades})); alert("¡Guardado!"); }
+
+        window.onload = () => {
+            const s = JSON.parse(localStorage.getItem('cookieHard'));
+            if(s) { cookies = s.c; gps = s.g; gpc = s.k; upgrades = s.u; }
+            renderShop();
+            updateDisplay();
+        };
+    </script>
+</body>
+</html>
