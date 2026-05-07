@@ -1,1 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Roblox Plus - 8 Juegos en 1</title>
+    <style>
+        :root { --gold: #ffcc00; --red: #ff4400; --heal: #2ecc71; --rbx-bg: #f2f4f5; --neon: #00f2ff; --zombie: #4a7c44; --space: #2c3e50; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--rbx-bg); margin: 0; overflow: hidden; user-select: none; }
+        
+        /* INTERFAZ */
+        .rbx-header { background: #232527; height: 40px; display: flex; align-items: center; padding: 0 20px; position: fixed; width: 100%; top: 0; z-index: 1000; }
+        .rbx-logo { color: white; font-weight: 900; font-size: 22px; letter-spacing: -1px; }
+        .main-content { margin-top: 60px; padding: 20px; max-width: 1200px; margin: auto; }
+        .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        .game-card { background: white; border-radius: 8px; overflow: hidden; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: 0.2s; border-bottom: 3px solid transparent; }
+        .game-card:hover { transform: translateY(-5px); border-bottom: 3px solid #00a2ff; }
+        .game-thumb { width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; text-shadow: 1px 1px 4px rgba(0,0,0,0.5); font-size: 13px; text-align: center; }
 
+        /* MOTORES */
+        .engine { display: none; position: fixed; inset: 0; z-index: 2000; background: #000; color: white; padding-top: 60px; text-align: center; }
+        #btn-exit { position: fixed; top: 10px; right: 10px; z-index: 3000; padding: 8px 15px; background: #ff4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="roblox-home">
+        <div class="rbx-header"><div class="rbx-logo">ROBLOX</div></div>
+        <div class="main-content">
+            <h2 style="color:#444">Recomendados para ti</h2>
+            <div class="game-grid">
+                <div class="game-card" onclick="launch('tanks')"><div class="game-thumb" style="background:#4b5320">TANQUES</div><div style="padding:10px; font-size: 11px;"><b>Iron Protocol</b></div></div>
+                <div class="game-card" onclick="launch('cookie')"><div class="game-thumb" style="background:#8b4513">COOKIES</div><div style="padding:10px; font-size: 11px;"><b>Casino</b></div></div>
+                <div class="game-card" onclick="launch('speed')"><div class="game-thumb" style="background:#00f2ff; color:#000">SPEED RUN</div><div style="padding:10px; font-size: 11px;"><b>Neon Dash</b></div></div>
+                <div class="game-card" onclick="launch('escape')"><div class="game-thumb" style="background:#ff4400">ESCAPE</div><div style="padding:10px; font-size: 11px;"><b>The Fall</b></div></div>
+                <div class="game-card" onclick="launch('zombie')"><div class="game-thumb" style="background:var(--zombie)">ZOMBIES</div><div style="padding:10px; font-size: 11px;"><b>Survival</b></div></div>
+                
+                <!-- LOS 3 NUEVOS JUEGOS -->
+                <div class="game-card" onclick="launch('lava')"><div class="game-thumb" style="background:linear-gradient(#f00, #ff0)">LAVA JUMP</div><div style="padding:10px; font-size: 11px;"><b>Hardcore Obby</b></div></div>
+                <div class="game-card" onclick="launch('space')"><div class="game-thumb" style="background:#1e3799">SPACE MINER</div><div style="padding:10px; font-size: 11px;"><b>Galactic Clicker</b></div></div>
+                <div class="game-card" onclick="launch('boxes')"><div class="game-thumb" style="background:#8e44ad">BOXES</div><div style="padding:10px; font-size: 11px;"><b>Case Opener</b></div></div>
+            </div>
+        </div>
+    </div>
+
+    <button id="btn-exit" onclick="location.reload()">SALIR (ESC)</button>
+
+    <!-- MOTORES NUEVOS -->
+    <div id="lava-engine" class="engine">
+        <h2>EL SUELO ES LAVA</h2>
+        <div id="lava-msg">¡Salta para no quemarte!</div>
+        <button onclick="alert('¡Sobreviviste!')" style="margin-top:20px; padding:20px; background:orange; border:none; border-radius:10px; cursor:pointer">SALTAR</button>
+    </div>
+
+    <div id="space-engine" class="engine">
+        <h2>MINERO ESPACIAL</h2>
+        <p>Minerales: <span id="s-count">0</span></p>
+        <div onclick="mineSpace()" style="font-size:80px; cursor:pointer; filter:drop-shadow(0 0 10px #fff)">☄️</div>
+    </div>
+
+    <div id="boxes-engine" class="engine">
+        <h2>CAJAS MISTERIOSAS</h2>
+        <div id="box-result">¿Qué te tocará?</div>
+        <button onclick="openBox()" style="padding:15px; margin-top:20px; background:#2ecc71; color:white; border:none; cursor:pointer">ABRIR CAJA (FREE)</button>
+    </div>
+
+    <!-- Motor Zombie (Preexistente) -->
+    <div id="zombie-engine" class="engine" style="background:#111">
+        <h3 style="position:fixed; top:50px; left:20px">Modo Sobrevivencia Activo</h3>
+    </div>
+
+    <script>
+        let spaceScore = 0;
+        
+        function launch(m) {
+            document.getElementById('roblox-home').style.display = 'none';
+            document.getElementById('btn-exit').style.display = 'block';
+            document.querySelectorAll('.engine').forEach(e => e.style.display = 'none');
+            document.getElementById(m + '-engine').style.display = 'block';
+        }
+
+        // Lógica Space Miner
+        function mineSpace() {
+            spaceScore += 10;
+            document.getElementById('s-count').innerText = spaceScore;
+        }
+
+        // Lógica Boxes
+        function openBox() {
+            const items = ['⭐ Legendario: Dominus', '🟦 Raro: Espada Azul', '⚪ Común: Sombrero de Paja', '✨ Épico: Alas de Fuego'];
+            const randomItem = items[Math.floor(Math.random() * items.length)];
+            document.getElementById('box-result').innerText = "¡Te ha tocado: " + randomItem + "!";
+        }
+
+        // Cerrar con tecla Escape
+        window.addEventListener('keydown', (e) => {
+            if(e.key === "Escape") location.reload();
+        });
+    </script>
+</body>
+</html>
