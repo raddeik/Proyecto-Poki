@@ -1,1 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Casino Royal - Edición Préstamos</title>
+    <style>
+        :root { --gold: #d4af37; --felt: #1a472a; --wood: #3d2b1f; }
+        body { background: #0d2617; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .game-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; background: var(--felt); padding: 25px; border: 8px solid var(--wood); border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); }
+        #canvas { border: 10px solid #222; border-radius: 50%; background: #000; }
+        
+        .panel { width: 320px; display: flex; flex-direction: column; gap: 15px; }
+        .stats { background: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; border: 1px solid var(--gold); }
+        .balance { font-size: 24px; color: #2ecc71; font-weight: bold; }
+        .debt { font-size: 20px; color: #e74c3c; font-weight: bold; margin-top: 5px; }
+        
+        .loan-section { background: rgba(212, 175, 55, 0.1); padding: 10px; border-radius: 8px; border: 1px dashed var(--gold); }
+        
+        .bet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .btn { padding: 12px; border: 2px solid rgba(255,255,255,0.2); border-radius: 5px; cursor: pointer; font-weight: bold; text-align: center; color: white; transition: 0.2s; }
+        .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
+        .active { border-color: var(--gold); box-shadow: 0 0 10px var(--gold); }
+        
+        .red { background: #c0392b; } .black { background: #2c3e50; } .blue { background: #2980b9; }
+        #spin-btn { background: var(--gold); color: #1a472a; font-size: 20px; border: none; padding: 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        #spin-btn:disabled { background: #7f8c8d; cursor: not-allowed; }
+        input { padding: 10px; border-radius: 5px; border: none; text-align: center; width: 80%; margin: 5px 0; }
+        
+        /* Botón de reinicio */
+        .reset-btn { margin-top: 20px; background: none; border: 1px solid #7f8c8d; color: #7f8c8d; cursor: pointer; font-size: 12px; padding: 5px 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
 
+    <h1 style="color: var(--gold);">ROULETTE & BANK</h1>
+
+    <div class="game-container">
+        <canvas id="canvas" width="400" height="400"></canvas>
+
+        <div class="panel">
+            <div class="stats">
+                <div>SALDO: <span class="balance" id="saldo">1000</span>€</div>
+                <div id="display-deuda" style="display:none;">DEUDA: <span class="debt" id="deuda">0</span>€</div>
+                <div id="msg" style="margin-top:10px; font-style: italic; color: var(--gold);">Haga su apuesta</div>
+            </div>
+
+            <div class="loan-section">
+                <strong>¿Sin dinero?</strong><br>
+                <small>Préstamo rápido de 500€ (Interés 20%)</small><br>
+                <button onclick="pedirPrestamo()" style="margin-top:5px; cursor:pointer;">Pedir 500€</button>
+            </div>
+
+            <div class="bet-input-group">
+                <label>Apuesta (€):</label><br>
+                <input type="number" id="monto" value="50" min="1">
+            </div>
+
+            <div class="bet-grid">
+                <div class="btn red" id="b-rojo" onclick="sel('rojo')">ROJO</div>
+                <div class="btn black" id="b-negro" onclick="sel('negro')">NEGRO</div>
+                <div class="btn blue" id="b-par" onclick="sel('par')">PAR</div>
+                <div class="btn blue" id="b-impar" onclick="sel('impar')">IMPAR</div>
+            </div>
+
+            <input type="number" id="num" placeholder="O apuesta a número (0-36)" oninput="sel('numero')">
+            <button id="spin-btn" onclick="girar()">GIRAR</button>
+        </div>
+    </div>
+
+    <button class="reset-btn" onclick="reiniciarJuego()">Reiniciar partida (Borrar datos)</button>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const nums = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+        const rojos = [32, 19, 21, 25, 34, 27, 36, 30, 23, 5, 16, 1, 14, 9, 18, 7, 12, 3];
+        
+        let angulo = 0, saldo = 1000, deuda = 0, tipoApuesta = null, girando = false;
+
+        // --- FUNCIONES DE GUARDADO ---
+        function guardarPartida() {
+            localStorage.setItem('casino_saldo', saldo);
+            localStorage.setItem('casino_deuda', deuda);
+        }
+
+        function cargarPartida() {
+            const s = localStorage.getItem('casino_saldo');
+            const d = localStorage.getItem('casino_deuda');
+            if (s !== null) saldo = parseInt(s);
+            if (d !== null) deuda = parseInt(d);
+            actualizarUI();
+            dibujar();
+        }
+
+        function reiniciarJuego() {
+            if(confirm("¿Seguro que quieres borrar tu progreso?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+        // -----------------------------
+
+        function dibujar() {
+            const cx = 200, cy = 200, r = 190, slice = (Math.PI * 2) / nums.length;
+            ctx.clearRect(0,0,400,400);
+            nums.forEach((n, i) => {
+                const a = angulo + i * slice;
+                ctx.fillStyle = n === 0 ? "#27ae60" : (rojos.includes(n) ? "#c0392b" : "#111");
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, a, a + slice); ctx.fill();
+                ctx.strokeStyle = "#d4af37"; ctx.stroke();
+                ctx.save(); ctx.translate(cx, cy); ctx.rotate(a + slice/2);
+                ctx.fillStyle = "white"; ctx.font = "bold 12px Arial"; ctx.fillText(n, r-25, 5); ctx.restore();
+            });
+            ctx.fillStyle = "gold"; ctx.beginPath(); ctx.moveTo(200,0); ctx.lineTo(215,25); ctx.lineTo(185,25); ctx.fill();
+        }
+
+        function sel(t) {
+            tipoApuesta = t;
+            document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+            if(t !== 'numero') {
+                const el = document.getElementById('b-'+t);
+                if(el) el.classList.add('active');
+                document.getElementById('num').value = '';
+            }
+        }
+
+        function pedirPrestamo() {
+            if(deuda > 0) return alert("Primero debes pagar tu deuda actual.");
+            deuda = 600; 
+            saldo += 500;
+            actualizarUI();
+            guardarPartida();
+            alert("Has recibido 500€. Debes devolver 600€ (se cobrará de tus premios).");
+        }
+
+        function girar() {
+            const m = parseInt(document.getElementById('monto').value);
+            const nVal = document.getElementById('num').value;
+            if(girando || m > saldo || (!tipoApuesta && !nVal)) return alert("Revisa tu saldo o apuesta");
+            
+            saldo -= m; girando = true;
+            guardarPartida(); // Guardar tras restar la apuesta
+            document.getElementById('spin-btn').disabled = true;
+            let vel = Math.random() * 0.3 + 0.4;
+            const loop = () => {
+                angulo += vel; vel *= 0.985; dibujar();
+                if(vel > 0.002) requestAnimationFrame(loop);
+                else finalizar(m);
+            };
+            loop();
+        }
+
+        function finalizar(m) {
+            girando = false; document.getElementById('spin-btn').disabled = false;
+            const slice = (Math.PI * 2) / nums.length;
+            const resIdx = Math.floor(((Math.PI * 1.5 - angulo) % (Math.PI * 2) + (Math.PI * 2)) % (Math.PI * 2) / slice);
+            const res = nums[resIdx];
+            
+            let premio = 0;
+            const esRojo = rojos.includes(res), esPar = res !== 0 && res % 2 === 0;
+            const nElegido = parseInt(document.getElementById('num').value);
+
+            if(tipoApuesta === 'numero' && res === nElegido) premio = m * 36;
+            else if(tipoApuesta === 'rojo' && esRojo) premio = m * 2;
+            else if(tipoApuesta === 'negro' && !esRojo && res !== 0) premio = m * 2;
+            else if(tipoApuesta === 'par' && esPar) premio = m * 2;
+            else if(tipoApuesta === 'impar' && !esPar && res !== 0) premio = m * 2;
+
+            if(premio > 0) {
+                if(deuda > 0) {
+                    let pago = Math.min(premio, deuda);
+                    deuda -= pago;
+                    premio -= pago;
+                    document.getElementById('msg').innerText = `¡Ganaste! Pagaste ${pago}€ de deuda.`;
+                } else {
+                    document.getElementById('msg').innerText = `¡GANASTE ${premio}€!`;
+                }
+                saldo += premio;
+            } else {
+                document.getElementById('msg').innerText = `Cayó el ${res}. Perdiste.`;
+            }
+            
+            actualizarUI();
+            guardarPartida();
+        }
+
+        function actualizarUI() {
+            document.getElementById('saldo').innerText = saldo;
+            document.getElementById('deuda').innerText = deuda;
+            document.getElementById('display-deuda').style.display = deuda > 0 ? 'block' : 'none';
+        }
+
+        // Cargar al iniciar
+        cargarPartida();
+
+    </script>
+</body>
+</html>
