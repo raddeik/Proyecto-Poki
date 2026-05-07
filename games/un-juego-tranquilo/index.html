@@ -1,1 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>SISTEMA COMPROMETIDO 😈</title>
 
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      color: lime;
+      font-family: monospace;
+      text-align: center;
+    }
+
+    #mainText {
+      font-size: 50px;
+      margin-top: 10%;
+      animation: glitch 0.2s infinite;
+    }
+
+    @keyframes glitch {
+      0% { transform: translate(2px, -2px); }
+      50% { transform: translate(-2px, 2px); }
+      100% { transform: translate(2px, 2px); }
+    }
+
+    #btn {
+      padding: 20px 40px;
+      font-size: 20px;
+      background: red;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    /* Terminal */
+    #terminal {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 30%;
+      background: black;
+      color: lime;
+      font-size: 14px;
+      overflow: hidden;
+      text-align: left;
+      padding: 10px;
+    }
+
+    /* Cámara fake */
+    #cameraBox {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 300px;
+      height: 200px;
+      background: #111;
+      border: 3px solid red;
+      display: none;
+      overflow: hidden;
+    }
+
+    #cameraNoise {
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        0deg,
+        #000,
+        #000 2px,
+        #111 2px,
+        #111 4px
+      );
+      animation: noise 0.2s infinite;
+    }
+
+    @keyframes noise {
+      from { transform: translateY(0); }
+      to { transform: translateY(4px); }
+    }
+
+    #cameraText {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      color: red;
+      font-size: 14px;
+    }
+
+    /* Cara detectada */
+    #faceBox {
+      position: absolute;
+      border: 2px solid lime;
+      width: 80px;
+      height: 80px;
+      display: none;
+    }
+
+    #faceLabel {
+      position: absolute;
+      color: lime;
+      font-size: 12px;
+      display: none;
+    }
+
+    /* Mapa fake */
+    #mapBox {
+      position: absolute;
+      left: 20px;
+      top: 20px;
+      width: 300px;
+      height: 200px;
+      background: black;
+      border: 3px solid lime;
+      display: none;
+    }
+
+    #mapText {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      color: lime;
+      font-size: 14px;
+      z-index: 2;
+    }
+
+    #mapFrame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      filter: hue-rotate(90deg) contrast(1.2);
+    }
+  </style>
+</head>
+
+<body>
+
+<h1 id="mainText">NO DEBISTE ENTRAR</h1>
+<button id="btn">NO HAGAS CLICK</button>
+
+<!-- Cámara -->
+<div id="cameraBox">
+  <div id="cameraText">● REC - CÁMARA ACTIVADA</div>
+  <div id="faceLabel">FACE DETECTED</div>
+  <div id="faceBox"></div>
+  <div id="cameraNoise"></div>
+</div>
+
+<!-- Mapa -->
+<div id="mapBox">
+  <div id="mapText">📍 UBICACIÓN DETECTADA</div>
+  <iframe id="mapFrame"></iframe>
+</div>
+
+<!-- Terminal -->
+<div id="terminal"></div>
+
+<audio id="audio" src="https://www.myinstants.com/media/sounds/trollolol.mp3"></audio>
+
+<script>
+const btn = document.getElementById("btn");
+const audio = document.getElementById("audio");
+const terminal = document.getElementById("terminal");
+const camera = document.getElementById("cameraBox");
+const faceBox = document.getElementById("faceBox");
+const faceLabel = document.getElementById("faceLabel");
+const mapBox = document.getElementById("mapBox");
+const mapFrame = document.getElementById("mapFrame");
+
+btn.onclick = () => {
+  audio.play();
+
+  activarPantallaCompleta();
+  iniciarVirusFake();
+  abrirVentanas();
+  caosVisual();
+  activarCamaraFake();
+  activarDeteccionFake();
+  activarMapaFake();
+};
+
+// Pantalla completa
+function activarPantallaCompleta() {
+  document.documentElement.requestFullscreen().catch(() => {});
+}
+
+// Ventanas
+function abrirVentanas() {
+  for (let i = 0; i < 5; i++) {
+    window.open(window.location.href, "_blank", "width=300,height=200");
+  }
+}
+
+// Terminal hacker
+function iniciarVirusFake() {
+  const mensajes = [
+    "Accediendo al sistema...",
+    "Activando cámara...",
+    "Detectando rostro...",
+    "Analizando biometría...",
+    "Subiendo datos...",
+    "Ubicación rastreada...",
+    "Acceso completo concedido"
+  ];
+
+  let i = 0;
+  setInterval(() => {
+    terminal.innerHTML += mensajes[i % mensajes.length] + "<br>";
+    terminal.scrollTop = terminal.scrollHeight;
+    i++;
+  }, 300);
+}
+
+// Cámara fake
+function activarCamaraFake() {
+  camera.style.display = "block";
+}
+
+// Detección fake
+function activarDeteccionFake() {
+  faceBox.style.display = "block";
+  faceLabel.style.display = "block";
+
+  setInterval(() => {
+    let x = Math.random() * 200;
+    let y = Math.random() * 120;
+
+    faceBox.style.left = x + "px";
+    faceBox.style.top = y + "px";
+
+    faceLabel.style.left = x + "px";
+    faceLabel.style.top = (y - 15) + "px";
+  }, 500);
+}
+
+// Mapa fake
+function activarMapaFake() {
+  mapBox.style.display = "block";
+
+  setInterval(() => {
+    let lat = (Math.random() * 180 - 90).toFixed(5);
+    let lon = (Math.random() * 360 - 180).toFixed(5);
+
+    mapFrame.src = `https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed`;
+  }, 4000);
+}
+
+// Caos visual
+function caosVisual() {
+  setInterval(() => {
+    document.body.style.background = randomColor();
+  }, 100);
+}
+
+function randomColor() {
+  return `rgb(${rand()},${rand()},${rand()})`;
+}
+
+function rand() {
+  return Math.floor(Math.random() * 255);
+}
+
+// Anti-salida
+window.onbeforeunload = function() {
+  return "¿Seguro que quieres escapar?";
+};
+</script>
+
+</body>
+</html>
