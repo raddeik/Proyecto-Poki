@@ -37,3 +37,14 @@ body {
   transform: scale(1.05);
   background: #333;
 }
+
+.title {
+  font-size: 50px;
+  margin-top: 20px;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  color: #aaa;
+  margin-bottom: 30px;
+}
