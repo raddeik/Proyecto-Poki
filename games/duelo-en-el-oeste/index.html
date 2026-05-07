@@ -1,1 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Duelo de Vaqueros</title>
+    <style>
+        body { text-align: center; font-family: 'Courier New', Courier, monospace; background-color: #edc9af; color: #4b3621; }
+        #game-container { margin-top: 50px; }
+        #message { font-size: 3rem; font-weight: bold; margin: 20px; height: 60px; }
+        .btn-shoot { padding: 20px 50px; font-size: 1.5rem; cursor: pointer; background: #8b4513; color: white; border: none; border-radius: 10px; }
+        .btn-shoot:active { background: #a0522d; }
+    </style>
+</head>
+<body>
 
+    <h1>🌵 DUELO EN EL OESTE 🌵</h1>
+    <p>Espera a la señal y dispara lo más rápido posible.</p>
+
+    <div id="game-container">
+        <div id="message">Presiona "Comenzar"</div>
+        <button id="action-btn" class="btn-shoot" onclick="startGame()">Comenzar Juego</button>
+    </div>
+
+    <script>
+        let canShoot = false;
+        let startTime;
+        let timeoutId;
+        const msg = document.getElementById('message');
+        const btn = document.getElementById('action-btn');
+
+        function startGame() {
+            msg.innerText = "Preparado...";
+            msg.style.color = "#4b3621";
+            btn.innerText = "¡DISPARA!";
+            btn.onclick = shoot;
+            canShoot = false;
+
+            // Tiempo aleatorio entre 2 y 5 segundos
+            const randomTime = Math.floor(Math.random() * 3000) + 2000;
+
+            timeoutId = setTimeout(() => {
+                msg.innerText = "¡FUEGO!";
+                msg.style.color = "red";
+                canShoot = true;
+                startTime = Date.now();
+            }, randomTime);
+        }
+
+        function shoot() {
+            if (!canShoot) {
+                clearTimeout(timeoutId);
+                msg.innerText = "¡Tramposo! Disparaste antes.";
+                resetGame();
+            } else {
+                const reactionTime = (Date.now() - startTime) / 1000;
+                msg.innerText = `¡Rápido! Tiempo: ${reactionTime}s`;
+                resetGame();
+            }
+        }
+
+        function resetGame() {
+            btn.innerText = "Jugar de nuevo";
+            btn.onclick = startGame;
+            canShoot = false;
+        }
+    </script>
+</body>
+</html>
