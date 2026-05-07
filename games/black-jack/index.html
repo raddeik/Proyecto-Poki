@@ -1,1 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Blackjack Casino Premium - 1000€ Start</title>
+    <style>
+        :root { --gold: #ffd700; --green: #074d1e; --table: radial-gradient(#1a7a3a, #063114); }
+        body { background: #000; color: white; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        
+        .casino-bar { background: #111; padding: 15px; border-bottom: 3px solid var(--gold); display: flex; justify-content: space-around; font-size: 22px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .money-val { color: #2ecc71; font-weight: bold; }
 
+        .table { max-width: 800px; margin: 30px auto; background: var(--table); border: 15px solid #4a2c13; border-radius: 150px; padding: 50px; position: relative; box-shadow: inset 0 0 50px #000; border-style: double; text-align: center; }
+        
+        .hand { min-height: 140px; display: flex; justify-content: center; gap: 12px; margin: 20px 0; }
+        .card { width: 80px; height: 115px; background: white; color: black; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border: 2px solid #333; box-shadow: 5px 5px 10px rgba(0,0,0,0.4); animation: slideIn 0.3s ease-out; }
+        
+        .controls { margin-top: 25px; height: 120px; }
+        button { padding: 15px 30px; font-size: 16px; margin: 8px; cursor: pointer; border-radius: 8px; border: none; font-weight: bold; transition: 0.2s; text-transform: uppercase; box-shadow: 0 4px #999; }
+        button:active { box-shadow: 0 2px #666; transform: translateY(2px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+        
+        .btn-deal { background: var(--gold); color: black; width: 250px; font-size: 20px; }
+        .btn-hit { background: #e67e22; color: white; }
+        .btn-stand { background: #3498db; color: white; }
+        .btn-double { background: #9b59b6; color: white; }
+
+        #status { font-size: 32px; font-weight: bold; height: 40px; margin: 20px 0; text-shadow: 2px 2px 5px #000; color: var(--gold); }
+        .reset-msg { color: #ff4444; font-size: 14px; margin-top: 5px; display: none; }
+        
+        .btn-reset-data { position: fixed; bottom: 10px; right: 10px; background: none; border: 1px solid #444; color: #444; font-size: 10px; padding: 5px; cursor: pointer; border-radius: 4px; }
+
+        @keyframes slideIn { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="casino-bar">
+        <div>SALDO: <span id="balance" class="money-val">1000€</span></div>
+        <div>APUESTA: <span id="current-bet-display" style="color:var(--gold)">0€</span></div>
+    </div>
+
+    <div class="table">
+        <div style="opacity: 0.6; letter-spacing: 2px;">CRUPIER <span id="dealer-score"></span></div>
+        <div id="dealer-hand" class="hand"></div>
+
+        <div id="status">HAGAN JUEGO</div>
+
+        <div id="player-hand" class="hand"></div>
+        <div style="opacity: 0.6; letter-spacing: 2px;">JUGADOR <span id="player-score"></span></div>
+
+        <div class="controls">
+            <div id="betting-area">
+                <input type="number" id="bet-amount" style="padding:15px; width:100px; border-radius:8px; border:none; font-size:18px;" value="100" step="50" min="10">
+                <button class="btn-deal" onclick="startGame()">APOSTAR Y REPARTIR</button>
+                <div id="reset-info" class="reset-msg">¡Bancarrota! Te hemos recargado 1000€ de cortesía.</div>
+            </div>
+            
+            <div id="game-actions" style="display:none;">
+                <button class="btn-hit" onclick="hit()">Pedir Carta</button>
+                <button id="btn-double" class="btn-double" onclick="doubleDown()">Doblar Apuesta</button>
+                <button class="btn-stand" onclick="stand()">Plantarse</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn-reset-data" onclick="resetProgress()">REINICIAR TODO</button>
+
+    <script>
+        let balance = 1000, currentBet = 0, deck = [], pHand = [], dHand = [];
+
+        // --- LÓGICA DE GUARDADO ---
+        function saveBalance() {
+            localStorage.setItem('blackjack_balance', balance);
+        }
+
+        function loadBalance() {
+            const saved = localStorage.getItem('blackjack_balance');
+            if (saved !== null) {
+                balance = parseInt(saved);
+            }
+            updateBalanceUI();
+        }
+
+        function resetProgress() {
+            if(confirm("¿Quieres resetear tu saldo a 1000€?")) {
+                balance = 1000;
+                saveBalance();
+                location.reload();
+            }
+        }
+        // -------------------------
+
+        function createDeck() {
+            const suits = ['♠', '♣', '♥', '♦'], vals = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+            deck = [];
+            for (let s of suits) for (let v of vals) deck.push({ v, s });
+            deck.sort(() => Math.random() - 0.5);
+        }
+
+        function getScore(hand) {
+            let score = 0, aces = 0;
+            for (let c of hand) {
+                if (c.v === 'A') { aces++; score += 11; }
+                else if (['J', 'Q', 'K'].includes(c.v)) score += 10;
+                else score += parseInt(c.v);
+            }
+            while (score > 21 && aces > 0) { score -= 10; aces--; }
+            return score;
+        }
+
+        function startGame() {
+            document.getElementById('reset-info').style.display = 'none';
+            let val = parseInt(document.getElementById('bet-amount').value);
+            
+            if (val > balance) return alert("No tienes suficiente dinero para esa apuesta.");
+            if (val <= 0) return alert("Apuesta una cantidad válida.");
+
+            balance -= val;
+            currentBet = val;
+            saveBalance();
+            updateBalanceUI();
+            createDeck();
+            
+            pHand = [deck.pop(), deck.pop()];
+            dHand = [deck.pop()]; 
+            
+            document.getElementById('betting-area').style.display = 'none';
+            document.getElementById('game-actions').style.display = 'block';
+            document.getElementById('btn-double').disabled = (balance < currentBet);
+            document.getElementById('status').innerText = "Distribuyendo...";
+            document.getElementById('current-bet-display').innerText = currentBet + "€";
+            
+            updateUI();
+            if (getScore(pHand) === 21) stand();
+        }
+
+        function hit() {
+            document.getElementById('btn-double').disabled = true;
+            pHand.push(deck.pop());
+            updateUI();
+            if (getScore(pHand) > 21) finishGame("TE PASASTE - PIERDES", 0);
+        }
+
+        function doubleDown() {
+            balance -= currentBet;
+            currentBet *= 2;
+            saveBalance();
+            updateBalanceUI();
+            document.getElementById('current-bet-display').innerText = currentBet + "€";
+            pHand.push(deck.pop());
+            updateUI();
+            if (getScore(pHand) > 21) finishGame("TE PASASTE - PIERDES", 0);
+            else stand();
+        }
+
+        function stand() {
+            while (getScore(dHand) < 17) dHand.push(deck.pop());
+            updateUI();
+            
+            let ps = getScore(pHand), ds = getScore(dHand);
+            let mult = (pHand.length === 2 && ps === 21) ? 2.5 : 2;
+
+            if (ds > 21 || ps > ds) {
+                let win = Math.floor(currentBet * mult);
+                finishGame(`¡GANASTE! +${win}€`, win);
+            } else if (ds > ps) {
+                finishGame("LA CASA GANA", 0);
+            } else {
+                finishGame("EMPATE (PUSH)", currentBet);
+            }
+        }
+
+        function finishGame(msg, payout) {
+            balance += payout;
+            
+            document.getElementById('status').innerText = msg;
+            document.getElementById('game-actions').style.display = 'none';
+            document.getElementById('betting-area').style.display = 'block';
+
+            if (balance <= 0) {
+                balance = 1000;
+                document.getElementById('reset-info').style.display = 'block';
+            }
+            saveBalance();
+            updateBalanceUI();
+        }
+
+        function updateBalanceUI() {
+            document.getElementById('balance').innerText = balance + "€";
+        }
+
+        function updateUI() {
+            const pDiv = document.getElementById('player-hand'), dDiv = document.getElementById('dealer-hand');
+            pDiv.innerHTML = ''; dDiv.innerHTML = '';
+            pHand.forEach(c => pDiv.appendChild(createCardUI(c)));
+            dHand.forEach(c => dDiv.appendChild(createCardUI(c)));
+            document.getElementById('player-score').innerText = "(" + getScore(pHand) + ")";
+            document.getElementById('dealer-score').innerText = dHand.length > 0 ? "(" + getScore(dHand) + ")" : "";
+        }
+
+        function createCardUI(card) {
+            const div = document.createElement('div');
+            div.className = 'card';
+            const color = (card.s === '♥' || card.s === '♦') ? 'red' : 'black';
+            div.style.color = color;
+            div.innerHTML = `<div>${card.v}</div><div style="font-size:30px">${card.s}</div>`;
+            return div;
+        }
+
+        // Cargar saldo al iniciar la página
+        loadBalance();
+
+    </script>
+</body>
+</html>
