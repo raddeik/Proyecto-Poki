@@ -1,1 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mansion Survival: Armas Arregladas</title>
+    <style>
+        body { background: #000; color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
+        canvas { background: #111; display: block; cursor: crosshair; }
+        #ui { position: fixed; top: 10px; left: 10px; pointer-events: none; z-index: 10; }
+        .stat-box { background: rgba(0,0,0,0.8); padding: 8px; margin: 4px; border-radius: 4px; border-left: 5px solid #00f; }
+        #menu, #shop { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; padding: 30px; border: 3px solid #00f; border-radius: 15px; text-align: center; width: 320px; z-index: 20; }
+        button { background: #007bff; color: white; border: none; padding: 12px; margin: 8px 0; width: 100%; cursor: pointer; font-weight: bold; border-radius: 5px; }
+        input { padding: 10px; width: 80%; background: #222; color: #f1c40f; border: 1px solid #555; text-align: center; margin-bottom: 10px; }
+        #exitBtn { position: fixed; top: 10px; right: 10px; width: 100px; background: #d9534f; z-index: 30; display: none; }
+    </style>
+</head>
+<body>
 
+    <div id="ui" style="display:none">
+        <div class="stat-box">NIVEL: <span id="lvl">1</span></div>
+        <div class="stat-box">VIDA: <span id="hp">100</span></div>
+        <div class="stat-box" style="color: gold;">💰 MONEDAS: <span id="coins">0</span></div>
+        <div class="stat-box">BALAS: <span id="ammo">40</span></div>
+        <div class="stat-box" style="color: cyan;">ARMA: <span id="curWep">Pistola</span></div>
+    </div>
+
+    <button id="exitBtn" onclick="quitToMenu()">SALIR 🚪</button>
+
+    <div id="menu">
+        <h1>ZOMBIE MANSION</h1>
+        <button onclick="startGame()">JUGAR</button>
+        <button onclick="toggleShop(true)">TIENDA</button>
+        <p style="font-size: 12px;">Escribe código:</p>
+        <input type="text" id="cheatCode" placeholder="inakirueda">
+        <button onclick="activateCheat()" style="background:#444">ACTIVAR TRUCO</button>
+    </div>
+
+    <div id="shop" style="display:none">
+        <h2>TIENDA</h2>
+        <button onclick="buy('shotgun', 20)">Escopeta (20 💰)</button>
+        <button onclick="buy('ak47', 50)">AK-47 Ráfaga (50 💰)</button>
+        <button onclick="buy('launcher', 80)">Granada Fuego (80 💰)</button>
+        <button onclick="buy('bracelet', 200)">Misiles Auto (200 💰)</button>
+        <button onclick="toggleShop(false)">VOLVER</button>
+    </div>
+
+    <canvas id="game"></canvas>
+
+<script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let p = { x: 100, y: 100, hp: 100, ammo: 40, coins: 0, weapon: 'pistol', level: 1, angle: 0, god: false };
+    let enemies = [], bullets = [], walls = [], chests = [], fireAreas = [], exit = null, keys = {}, running = false;
+
+    function activateCheat() {
+        if(document.getElementById("cheatCode").value === "inakirueda") {
+            p.god = true; p.coins = 999999; p.ammo = 999999;
+            alert("¡MODO DIOS ACTIVADO!");
+            save();
+        }
+    }
+
+    function save() { localStorage.setItem('m_save_v5', JSON.stringify({l: p.level, c: p.coins, w: p.weapon, a: p.ammo, g: p.god})); }
+    function load() {
+        let s = JSON.parse(localStorage.getItem('m_save_v5'));
+        if(s) { p.level = s.l; p.coins = s.c; p.weapon = s.w; p.ammo = s.a; p.god = s.g || false; }
+    }
+
+    function toggleShop(open) {
+        document.getElementById("shop").style.display = open ? "block" : "none";
+        document.getElementById("menu").style.display = open ? "none" : "block";
+    }
+
+    function buy(type, cost) {
+        if (p.god || p.coins >= cost) {
+            if(!p.god) p.coins -= cost;
+            p.weapon = type;
+            p.ammo += 100;
+            save();
+            toggleShop(false);
+        }
+    }
+
+    function quitToMenu() {
+        running = false;
+        document.getElementById("menu").style.display = "block";
+        document.getElementById("exitBtn").style.display = "none";
+        document.getElementById("ui").style.display = "none";
+        save();
+    }
+
+    function startGame() {
+        load();
+        document.getElementById("menu").style.display = "none";
+        document.getElementById("exitBtn").style.display = "block";
+        document.getElementById("ui").style.display = "block";
+        running = true;
+        generateLevel();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function generateLevel() {
+        enemies = []; walls = []; chests = []; fireAreas = []; bullets = []; exit = null;
+        p.x = 100; p.y = 100;
+        walls.push({x:0,y:0,w:canvas.width,h:20},{x:0,y:canvas.height-20,w:canvas.width,h:20},{x:0,y:0,w:20,h:canvas.height},{x:canvas.width-20,y:0,w:20,h:canvas.height});
+        for(let i=0; i<5; i++) walls.push({x: 300+Math.random()*(canvas.width-600), y: 100+Math.random()*(canvas.height-300), w: 30, h: 200});
+        for(let i=0; i<3+p.level; i++) enemies.push({x: canvas.width-150, y: Math.random()*(canvas.height-100)+50, hp: 3, a: 0});
+        chests.push({x: canvas.width/2, y: canvas.height/2});
+    }
+
+    window.onkeydown = e => keys[e.code] = true;
+    window.onkeyup = e => keys[e.code] = false;
+    window.onmousedown = () => { if(running) shoot(); };
+    window.onmousemove = e => p.angle = Math.atan2(e.clientY - p.y, e.clientX - p.x);
+
+    function shoot() {
+        if(p.ammo <= 0 && !p.god) return;
+        if(!p.god) p.ammo--;
+
+        const createB = (ang, type) => {
+            bullets.push({ x: p.x, y: p.y, vx: Math.cos(ang)*15, vy: Math.sin(ang)*15, type: type });
+        };
+
+        if(p.weapon === 'pistol') createB(p.angle, 'normal');
+        else if(p.weapon === 'shotgun') {
+            [p.angle-0.2, p.angle, p.angle+0.2].forEach(a => createB(a, 'normal'));
+        }
+        else if(p.weapon === 'ak47') {
+            createB(p.angle, 'normal');
+            setTimeout(() => { if(running) createB(p.angle, 'normal') }, 100);
+            setTimeout(() => { if(running) createB(p.angle, 'normal') }, 200);
+        }
+        else if(p.weapon === 'launcher') createB(p.angle, 'bomb');
+        else if(p.weapon === 'bracelet') createB(p.angle, 'missile');
+    }
+
+    function isWall(x, y, s) { return walls.some(w => x > w.x-s && x < w.x+w.w+s && y > w.y-s && y < w.y+w.h+s); }
+
+    function update() {
+        let nx = p.x, ny = p.y;
+        if(keys['KeyW'] || keys['ArrowUp']) ny -= 5;
+        if(keys['KeyS'] || keys['ArrowDown']) ny += 5;
+        if(keys['KeyA'] || keys['ArrowLeft']) nx -= 5;
+        if(keys['KeyD'] || keys['ArrowRight']) nx += 5;
+        if(!isWall(nx, ny, 15)) { p.x = nx; p.y = ny; }
+
+        if(p.god) { p.coins = 999999; p.ammo = 999999; }
+
+        bullets.forEach((b, bi) => {
+            // Misiles teledirigidos: buscan al enemigo más cercano
+            if(b.type === 'missile' && enemies.length > 0) {
+                let target = enemies[0];
+                let ang = Math.atan2(target.y - b.y, target.x - b.x);
+                b.vx += Math.cos(ang) * 1.2;
+                b.vy += Math.sin(ang) * 1.2;
+                // Limitar velocidad
+                let speed = Math.hypot(b.vx, b.vy);
+                if(speed > 15) { b.vx = (b.vx/speed)*15; b.vy = (b.vy/speed)*15; }
+            }
+
+            b.x += b.vx; b.y += b.vy;
+
+            // Colisión con muros
+            if(isWall(b.x, b.y, 5)) {
+                if(b.type === 'bomb') fireAreas.push({x: b.x, y: b.y, t: 300});
+                bullets.splice(bi, 1);
+            } else {
+                // Colisión con enemigos
+                enemies.forEach((en, ei) => {
+                    if(Math.hypot(en.x - b.x, en.y - b.y) < 25) {
+                        if(b.type === 'bomb') fireAreas.push({x: b.x, y: b.y, t: 300});
+                        enemies.splice(ei, 1); bullets.splice(bi, 1); if(!p.god) p.coins += 10;
+                    }
+                });
+            }
+        });
+
+        fireAreas.forEach((fa, fi) => {
+            fa.t--;
+            enemies.forEach((en, ei) => { if(Math.hypot(en.x-fa.x, en.y-fa.y)<80) enemies.splice(ei,1); });
+            if(fa.t <= 0) fireAreas.splice(fi, 1);
+        });
+
+        enemies.forEach(en => {
+            en.a = Math.atan2(p.y - en.y, p.x - en.x);
+            let ex = en.x + Math.cos(en.a)*2.5, ey = en.y + Math.sin(en.a)*2.5;
+            if(!isWall(ex, ey, 15)) { en.x = ex; en.y = ey; }
+            if(Math.hypot(p.x-en.x, p.y-en.y)<30) p.hp -= 0.4;
+        });
+
+        chests.forEach((c, i) => { if(Math.hypot(p.x-c.x, p.y-c.y)<40) { p.ammo += 50; chests.splice(i,1); } });
+        
+        if(enemies.length === 0 && !exit) exit = {x: canvas.width-100, y: canvas.height/2, w: 40, h: 70};
+        if(exit && Math.hypot(p.x-exit.x, p.y-exit.y)<40) { p.level++; save(); generateLevel(); }
+        if(p.hp <= 0) { localStorage.removeItem('m_save_v5'); location.reload(); }
+
+        document.getElementById("hp").innerText = Math.floor(p.hp);
+        document.getElementById("coins").innerText = p.god ? "∞" : p.coins;
+        document.getElementById("ammo").innerText = p.god ? "∞" : p.ammo;
+        document.getElementById("lvl").innerText = p.level;
+        document.getElementById("curWep").innerText = p.weapon.toUpperCase();
+    }
+
+    function draw() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle="#444"; walls.forEach(w => ctx.fillRect(w.x, w.y, w.w, w.h));
+        if(exit) { ctx.fillStyle = "#00f"; ctx.shadowBlur=15; ctx.shadowColor="cyan"; ctx.fillRect(exit.x, exit.y, exit.w, exit.h); ctx.shadowBlur=0; }
+        fireAreas.forEach(fa => { ctx.fillStyle="rgba(255,100,0,0.5)"; ctx.beginPath(); ctx.arc(fa.x, fa.y, 80, 0, Math.PI*2); ctx.fill(); });
+        chests.forEach(c => { ctx.fillStyle="#8b4513"; ctx.fillRect(c.x-20, c.y-15, 40, 30); ctx.fillStyle="gold"; ctx.fillRect(c.x-5, c.y-5, 10, 10); });
+
+        const drawChar = (x, y, ang, col, isZ) => {
+            ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+            ctx.fillStyle = (!isZ && p.god) ? "gold" : col;
+            ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = isZ ? "red" : "white";
+            ctx.beginPath(); ctx.arc(10, -6, 4, 0, Math.PI*2); ctx.arc(10, 6, 4, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        };
+        drawChar(p.x, p.y, p.angle, "#ffdbac", false);
+        enemies.forEach(en => drawChar(en.x, en.y, en.a, "#4caf50", true));
+        bullets.forEach(b => { 
+            ctx.fillStyle = b.type==='missile'?'cyan':(b.type==='bomb'?'orange':'yellow');
+            ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, Math.PI*2); ctx.fill(); 
+        });
+    }
+
+    function gameLoop() {
+        if(running) {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+    }
+</script>
+</body>
+</html>
