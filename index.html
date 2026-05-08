@@ -17,9 +17,25 @@
 
 <div class="games">
 
-  <div class="card" onclick="openGame('games/cosas-de-cucharas/index.html')">
-  <img src="assets/images/portada-cosas-de-cucharas.png" alt="Cosas de cucharas">
-  <h3>Cosas de cucharas</h3>
+  <div class="card">
+
+  <button class="fav-btn"
+    onclick="toggleFavorite(
+      'Cosas de cucharas',
+      'games/cosas-de-cucharas/index.html',
+      'assets/images/portada-cosas-de-cucharas.png'
+    )">
+    ⭐
+  </button>
+
+  <div onclick="openGame('games/cosas-de-cucharas/index.html')">
+
+    <img src="assets/images/portada-cosas-de-cucharas.png">
+
+    <h3>Cosas de cucharas</h3>
+
+  </div>
+
 </div>
   
   <div class="card">
