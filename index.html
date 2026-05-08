@@ -22,9 +22,25 @@
   <h3>Cosas de cucharas</h3>
 </div>
   
-  <div class="card" onclick="openGame('games/slope-2d/index.html')">
-  <img src="assets/images/portada-slope-2d.png" alt="SLOPE 2D">
-  <h3>SLOPE 2D</h3>
+  <div class="card">
+
+  <button class="fav-btn"
+    onclick="toggleFavorite(
+      'SLOPE 2D',
+      'games/slope-2d/index.html',
+      'assets/images/portada-slope-2d.png'
+    )">
+    ⭐
+  </button>
+
+  <div onclick="openGame('games/slope-2d/index.html')">
+
+    <img src="assets/images/portada-slope-2d.png">
+
+    <h3>SLOPE 2D</h3>
+
+  </div>
+
 </div>
 
   <div class="card" onclick="openGame('games/five-nitghs-at-leclers/index.html')">
