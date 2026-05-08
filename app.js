@@ -18,3 +18,51 @@ searchInput.addEventListener("input", function () {
     }
   });
 });
+
+function toggleFavorite(name, url, image) {
+
+  let favorites =
+    JSON.parse(localStorage.getItem("favorites")) || [];
+
+  const exists = favorites.find(game => game.name === name);
+
+  if (exists) {
+    favorites =
+      favorites.filter(game => game.name !== name);
+  } else {
+    favorites.push({ name, url, image });
+  }
+
+  localStorage.setItem(
+    "favorites",
+    JSON.stringify(favorites)
+  );
+
+  loadFavorites();
+}
+
+function loadFavorites() {
+
+  const favoritesDiv =
+    document.getElementById("favorites");
+
+  favoritesDiv.innerHTML = "";
+
+  const favorites =
+    JSON.parse(localStorage.getItem("favorites")) || [];
+
+  favorites.forEach(game => {
+
+    favoritesDiv.innerHTML += `
+      <div class="card"
+        onclick="openGame('${game.url}')">
+
+        <img src="${game.image}">
+        <h3>${game.name}</h3>
+
+      </div>
+    `;
+  });
+}
+
+loadFavorites();
