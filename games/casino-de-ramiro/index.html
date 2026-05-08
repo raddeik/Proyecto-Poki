@@ -1,1 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Poker: El Casino de Ramiro</title>
+    <style>
+        :root { --gold: #ffd700; --red: #ff4d4d; }
+        body { background: #0a0a0a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; height: 100vh; justify-content: center; overflow: hidden; }
 
+        /* BANCO */
+        #bank-ui { position: fixed; top: 10px; right: 10px; background: rgba(20,0,0,0.9); border: 2px solid var(--red); padding: 15px; border-radius: 10px; z-index: 100; text-align: right; }
+        .timer { color: var(--red); font-weight: bold; font-size: 1.2rem; }
+
+        /* RAMIRO */
+        #ramiro-area { text-align: center; margin-bottom: 10px; }
+        #avatar { font-size: 80px; filter: drop-shadow(0 0 10px var(--gold)); animation: float 3s infinite ease-in-out; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        #bubble { background: white; color: black; padding: 10px 20px; border-radius: 20px; font-weight: bold; position: relative; display: inline-block; }
+
+        /* MESA */
+        #table { background: radial-gradient(#2d5a27, #112a10); border: 10px solid #3d2b1f; border-radius: 120px; padding: 40px; width: 85%; max-width: 800px; box-shadow: inset 0 0 80px #000; }
+        .hand { display: flex; justify-content: center; gap: 12px; min-height: 120px; perspective: 1000px; }
+
+        /* CARTAS Y ANIMACIONES */
+        .card { 
+            width: 75px; height: 110px; background: white; border-radius: 8px; color: black; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            font-weight: bold; cursor: pointer; border: 1px solid #999; font-size: 1.4rem;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+            position: relative;
+        }
+
+        /* Animación de entrada al repartir */
+        .card.deal-anim { animation: dealIn 0.5s ease-out forwards; }
+        @keyframes dealIn { from { transform: translateY(-200px) rotate(30deg); opacity: 0; } to { transform: translateY(0) rotate(0); opacity: 1; } }
+
+        /* Animación de salida al descartar */
+        .card.exit-anim { transform: translateY(-250px) rotate(20deg) scale(0.5); opacity: 0; pointer-events: none; }
+
+        /* Animación de entrada de cartas nuevas */
+        .card.new-anim { animation: newIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes newIn { from { transform: translateY(100px) scale(0.8); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
+        .card.selected { transform: translateY(-30px); border: 4px solid var(--gold); box-shadow: 0 0 15px var(--gold); }
+        .card.hidden { background: #0c2315; border: 2px solid white; color: transparent; }
+        .red-s { color: #d40000; }
+
+        #hand-text { color: var(--gold); font-weight: bold; height: 25px; margin-top: 10px; text-align: center; }
+
+        /* BOTONES */
+        #controls { margin-top: 20px; text-align: center; }
+        .btn { padding: 12px 20px; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; margin: 5px; text-transform: uppercase; }
+        .btn-green { background: #27ae60; color: white; }
+        .btn-orange { background: #e67e22; color: white; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div id="bank-ui">
+    <div>Deuda: <span id="debt">0</span>$</div>
+    <div id="timer-box" style="display:none">Paga en: <span class="timer" id="time">07:00</span></div>
+    <button class="btn" style="background:var(--red); color:white; font-size:0.7rem;" onclick="getLoan()">PRESTAMO (500$)</button>
+</div>
+
+<div id="ramiro-area">
+    <div id="bubble">Ramiro: "¿Tienes 100$? Repartamos..."</div><br>
+    <div id="avatar">🦈</div>
+    <div class="hand" id="ai-hand"></div>
+</div>
+
+<div id="table">
+    <div class="hand" id="player-hand"></div>
+    <div id="hand-text">Prepara tu apuesta</div>
+</div>
+
+<div id="controls">
+    <div>Efectivo: <span id="money" style="color:var(--gold)">1000</span>$ | Descartes: <span id="tries">4</span>/4</div>
+    <button id="btn-deal" class="btn btn-green" onclick="start()">Nueva Mano (-100$)</button>
+    <button id="btn-swap" class="btn btn-orange" onclick="discard()" disabled>Descartar Selección</button>
+    <button id="btn-show" class="btn btn-green" style="background:var(--gold); color:black" onclick="reveal()" disabled>Ver Ganador</button>
+    <button class="btn" style="background:#3498db; color:white" onclick="pay()">Pagar Deuda</button>
+</div>
+
+<script>
+    const suits = ['♥', '♦', '♣', '♠'], vals = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+    let deck = [], pHand = [], aHand = [], selected = [], tries = 4, cash = 1000, debt = 0, timer = null, sec = 420;
+
+    function build() {
+        deck = [];
+        suits.forEach(s => vals.forEach((v, i) => deck.push({v, s, c: (s==='♥'||s==='♦')?'red-s':'black', p: i})));
+        deck.sort(() => Math.random() - 0.5);
+    }
+
+    function say(t) { document.getElementById('bubble').innerText = "Ramiro: " + t; }
+
+    function start() {
+        if(cash < 100) return say("¡Pide un préstamo o vete!");
+        cash -= 100; tries = 4; selected = []; build();
+        pHand = deck.splice(0, 5); aHand = deck.splice(0, 5);
+        render(true);
+        document.getElementById('btn-deal').disabled = true;
+        document.getElementById('btn-swap').disabled = false;
+        document.getElementById('btn-show').disabled = false;
+        say("A ver qué basura te ha tocado.");
+    }
+
+    function evalH(hand) {
+        const counts = {}; hand.forEach(c => counts[c.v] = (counts[c.v] || 0) + 1);
+        const v = Object.values(counts).sort((a,b)=>b-a);
+        if(v[0]===3) return {n:"TRÍO", p:3}; if(v[0]===2 && v[1]===2) return {n:"DOBLE PAREJA", p:2};
+        if(v[0]===2) return {n:"PAREJA", p:1}; return {n:"CARTA ALTA", p:0};
+    }
+
+    function render(isNewHand = false) {
+        const pEl = document.getElementById('player-hand');
+        pEl.innerHTML = '';
+        pHand.forEach((card, i) => {
+            const div = document.createElement('div');
+            div.className = `card ${card.c} ${selected.includes(i) ? 'selected' : ''} ${isNewHand ? 'deal-anim' : ''}`;
+            div.style.animationDelay = isNewHand ? `${i * 0.1}s` : '0s';
+            div.innerHTML = `<div>${card.v}</div><div>${card.s}</div>`;
+            div.onclick = () => {
+                if(tries > 0) {
+                    selected.includes(i) ? selected = selected.filter(x=>x!==i) : selected.push(i);
+                    render();
+                }
+            };
+            pEl.appendChild(div);
+        });
+
+        const aEl = document.getElementById('ai-hand'); aEl.innerHTML = '';
+        aHand.forEach(() => aEl.innerHTML += '<div class="card hidden"></div>');
+        
+        document.getElementById('money').innerText = cash;
+        document.getElementById('tries').innerText = tries;
+        document.getElementById('debt').innerText = debt;
+        document.getElementById('hand-text').innerText = "Tu mano: " + evalH(pHand).n;
+    }
+
+    function discard() {
+        if(tries <= 0 || selected.length === 0) return;
+        
+        // EFECTO VISUAL DE SALIDA
+        selected.forEach(idx => {
+            document.getElementById('player-hand').children[idx].classList.add('exit-anim');
+        });
+
+        setTimeout(() => {
+            selected.forEach(idx => {
+                pHand[idx] = deck.pop();
+                // Marcamos la carta para la animación de entrada
+                const pEl = document.getElementById('player-hand');
+                pEl.children[idx].classList.remove('exit-anim');
+                pEl.children[idx].classList.add('new-anim');
+            });
+            tries--; selected = [];
+            say(tries > 0 ? `Te quedan ${tries} cambios.` : "¡No más cambios!");
+            render();
+            if(tries === 0) document.getElementById('btn-swap').disabled = true;
+        }, 400);
+    }
+
+    function reveal() {
+        const aEl = document.getElementById('ai-hand'); aEl.innerHTML = '';
+        aHand.forEach(c => aEl.innerHTML += `<div class="card ${c.c}"><div>${c.v}</div><div>${c.s}</div></div>`);
+        
+        const p = evalH(pHand), a = evalH(aHand);
+        let win = p.p > a.p || (p.p === a.p && pHand[0].p > aHand[0].p);
+
+        setTimeout(() => {
+            if(win) { cash += 200; say("¡Maldición! Ganaste."); }
+            else { say("¡JAJAJA! El dinero es mío."); }
+            render();
+            document.getElementById('btn-deal').disabled = false;
+            document.getElementById('btn-swap').disabled = true;
+            document.getElementById('btn-show').disabled = true;
+        }, 400);
+    }
+
+    function getLoan() { debt += 500; cash += 500; if(!timer) startT(); render(); }
+    function pay() { if(cash >= debt && debt > 0) { cash -= debt; debt = 0; clearInterval(timer); timer = null; document.getElementById('timer-box').style.display='none'; render(); } }
+    function startT() {
+        document.getElementById('timer-box').style.display = 'block';
+        timer = setInterval(() => {
+            sec--;
+            let m = Math.floor(sec/60), s = sec%60;
+            document.getElementById('time').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+            if(sec <= 0) location.reload();
+        }, 1000);
+    }
+</script>
+</body>
+</html>
