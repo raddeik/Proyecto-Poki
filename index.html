@@ -167,20 +167,68 @@
   </div>
 
 </div>
-  
-  <div class="card" onclick="openGame('games/cookie-clicker/index.html')">
-  <img src="assets/images/portada-cookie-clicker.png" alt="Cookie Clicker">
-  <h3>Cookie Clicker</h3>
-</div>
-  
-  <div class="card" onclick="openGame('games/duelo-en-el-oeste/index.html')">
-  <img src="assets/images/portada-duelo-en-el-oeste.png" alt="Duelo en el Oeste">
-  <h3>Duelo en el Oeste</h3>
+
+  <div class="card">
+
+  <button class="fav-btn"
+    onclick="toggleFavorite(
+      'Cookie Clicker',
+      'games/cookie-clicker/index.html',
+      'assets/images/portada-cookie-clicker.png'
+    )">
+    ☆
+  </button>
+
+  <div onclick="openGame('games/cookie-clicker/index.html')">
+
+    <img src="assets/images/portada-cookie-clicker.png">
+
+    <h3>Cookie Clicker</h3>
+
+  </div>
+
 </div>
 
-  <div class="card" onclick="openGame('games/robox/index.html')">
-  <img src="assets/images/portada-robox.png" alt="ROBOX">
-  <h3>ROBOX</h3>
+  <div class="card">
+
+  <button class="fav-btn"
+    onclick="toggleFavorite(
+      'Duelo en el Oeste',
+      'games/duelo-en-el-oeste/index.html',
+      'assets/images/portada-duelo-en-el-oeste.png'
+    )">
+    ☆
+  </button>
+
+  <div onclick="openGame('games/duelo-en-el-oeste/index.html')">
+
+    <img src="assets/images/portada-duelo-en-el-oeste.png">
+
+    <h3>Duelo en el Oeste</h3>
+
+  </div>
+
+</div>
+
+  <div class="card">
+
+  <button class="fav-btn"
+    onclick="toggleFavorite(
+      'ROBOX',
+      'games/robox/index.html',
+      'assets/images/portada-robox.png'
+    )">
+    ☆
+  </button>
+
+  <div onclick="openGame('games/robox/index.html')">
+
+    <img src="assets/images/portada-robox.png">
+
+    <h3>ROBOX</h3>
+
+  </div>
+
 </div>
 
   <div class="card" onclick="openGame('games/snake-colors/index.html')">
