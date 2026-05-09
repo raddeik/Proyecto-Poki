@@ -117,17 +117,34 @@
     <img src="assets/images/portada-black-jack.png">
 
     <h3>Black Jack</h3>
+    
     <h5>¿Ramiro?</h5>
 
   </div>
 
 </div>
 
-  <div class="card" onclick="openGame('games/ruleta/index.html')">
-  <img src="assets/images/portada-ruleta.png" alt="Ruleta">
-  <h3>Ruleta</h3>
-</div>
+  <div class="card">
 
+  <button class="fav-btn"
+    onclick="toggleFavorite(
+      'Ruleta',
+      'games/ruleta/index.html',
+      'assets/images/portada-ruleta.png'
+    )">
+    ☆
+  </button>
+
+  <div onclick="openGame('games/ruleta/index.html')">
+
+    <img src="assets/images/portada-ruleta.png">
+
+    <h3>Ruleta</h3>
+
+  </div>
+
+</div>
+  
   <div class="card">
 
   <button class="fav-btn"
@@ -149,12 +166,6 @@
 
   </div>
 
-</div>
-  
-  <div class="card" onclick="openGame('games/ruleta-rusa/index.html')">
-  <img src="assets/images/portada-ruleta-rusa.png" alt="Ruleta Rusa">
-  <h3>Ruleta Rusa</h3>
-  <h5>¿Te atreves a GIRAR?</h5>
 </div>
   
   <div class="card" onclick="openGame('games/cookie-clicker/index.html')">
