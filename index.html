@@ -80,9 +80,25 @@
 
 </div>
 
-  <div class="card" onclick="openGame('games/protocolo-hierro/index.html')">
-  <img src="assets/images/portada-protocolo-hierro.png" alt="Protocolo Hierro">
-  <h3>Protocolo Hierro</h3>
+  <div class="card">
+
+  <button class="fav-btn"
+    onclick="toggleFavorite(
+      'Protocolo Hierro',
+      'games/protocolo-hierro/index.html',
+      'assets/images/portada-protocolo-hierro.png'
+    )">
+    ☆
+  </button>
+
+  <div onclick="openGame('games/protocolo-hierro/index.html')">
+
+    <img src="assets/images/portada-protocolo-hierro.png">
+
+    <h3>Protocolo Hierro</h3>
+
+  </div>
+
 </div>
 
   <div class="card" onclick="openGame('games/black-jack/index.html')">
