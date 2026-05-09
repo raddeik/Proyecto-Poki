@@ -101,10 +101,27 @@
 
 </div>
 
-  <div class="card" onclick="openGame('games/black-jack/index.html')">
-  <img src="assets/images/portada-black-jack.png" alt="Black Jack">
-  <h3>Black Jack</h3>
-  <h5>¿Ramiro?</h5>
+  <div class="card">
+
+  <button class="fav-btn"
+    onclick="toggleFavorite(
+      'Black Jack',
+      'games/black-jack/index.html',
+      'assets/images/portada-black-jack.png'
+    )">
+    ☆
+  </button>
+
+  <div onclick="openGame('games/black-jack/index.html')">
+
+    <img src="assets/images/portada-black-jack.png">
+
+    <h3>Black Jack</h3>
+
+    <h5>¿Ramiro?</h5>
+
+  </div>
+
 </div>
 
   <div class="card" onclick="openGame('games/ruleta/index.html')">
