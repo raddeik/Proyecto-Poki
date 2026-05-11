@@ -1,1 +1,299 @@
 
+Maximiliano Fonseca Marques Quattrochi
+mar, 21 abr, 9:33
+para mí
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battle Cats: HRT - Fixed Codes Edition</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { background: #121212; display: flex; font-family: 'Segoe UI', sans-serif; margin: 0; color: white; height: 100vh; overflow: hidden; user-select: none; }
+        #sidebar { width: 280px; background: #1e272e; display: flex; flex-direction: column; padding: 20px; border-right: 4px solid #f1c40f; gap: 10px; overflow-y: auto; }
+        #main-game { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; position: relative; }
+        #ui-top { width: 800px; background: #2c3e50; border-radius: 10px 10px 0 0; border-bottom: 2px solid #f1c40f; padding: 10px; }
+        .ui-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .stats-grid { display: flex; gap: 20px; background: rgba(0,0,0,0.3); padding: 5px 15px; border-radius: 5px; font-size: 13px; font-family: monospace; border: 1px solid #444; }
+        .stat-item b { color: #f1c40f; }
+        canvas { background: linear-gradient(#87CEEB, #fff); display: block; box-shadow: 0 0 20px rgba(0,0,0,0.5); cursor: crosshair; }
+        #unit-bar { width: 800px; height: 130px; background: #2c3e50; display: flex; gap: 10px; padding: 15px; overflow-x: auto; border-radius: 0 0 10px 10px; }
+        .unit-slot { min-width: 100px; height: 100px; background: #34495e; position: relative; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 2px solid #555; text-align: center; flex-shrink: 0; }
+        .cooldown-overlay { position: absolute; bottom: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.6); pointer-events: none; }
+        .btn { border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
+        .dom-btn { background: #8e44ad; font-size: 10px; position: relative; overflow: hidden; margin-bottom: 5px; width: 100%; }
+        .dom-cd-bar { position: absolute; bottom: 0; left: 0; height: 4px; background: #2ecc71; width: 0%; }
+        #blackout { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: black; display: none; z-index: 1000; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: #f1c40f; text-align: center; }
+        #overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; z-index: 2000; flex-direction: column; justify-content: center; align-items: center; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div id="estrogen-container" style="display:none; background: linear-gradient(#f5a9b8, #5bcefa); padding:15px; border-radius:8px; border: 2px solid white; text-align: center;">
+        <button class="btn" style="background:white; color:#333; width: 100%;" onclick="hrtPrestige()">EVOLUCIONAR HRT 💊</button>
+    </div>
+    <h4 style="color:#f1c40f; margin:0;">🎰 CASINO</h4>
+    <input type="number" id="betPercent" value="15" style="width:100%; margin-bottom:5px; border-radius:4px; padding:4px;">
+    <button class="btn" style="background:#e67e22" onclick="playCasino()">¡APOSTAR!</button>
+    <hr>
+    <h4 style="color:#9b59b6; margin:0;">🏯 DOMINIOS</h4>
+    <button id="dom1" class="btn dom-btn" onclick="useDomain(1, 10000)">Restricción Celestial ($10k) <div id="bar1" class="dom-cd-bar"></div></button>
+    <button id="dom2" class="btn dom-btn" onclick="useDomain(2, 20000)">Vacío Infinito ($20k) <div id="bar2" class="dom-cd-bar"></div></button>
+    <button id="dom3" class="btn dom-btn" onclick="useDomain(3, 30000)">Brillo Benevolente ($30k) <div id="bar3" class="dom-cd-bar"></div></button>
+    <button id="dom4" class="btn dom-btn" onclick="useDomain(4, 40000)">Santuario Malévolo ($40k) <div id="bar4" class="dom-cd-bar"></div></button>
+    <hr>
+    <h4 style="color:#2ecc71; margin:0;">🛠 MEJORAS</h4>
+    <button class="btn" style="background:#27ae60" onclick="upgradeClick()">Click ($<span id="cCost">50</span>)</button>
+    <button class="btn" style="background:#27ae60" onclick="upgradeMPS()">MPS ($<span id="mCost">50</span>)</button>
+    <hr>
+    <button class="btn" style="background:#c0392b; width:100%; margin-top: auto;" onclick="fullReset()">BORRAR TODO</button>
+</div>
+
+<div id="main-game">
+    <div id="blackout">CONEXIÓN INTERRUMPIDA...</div>
+    <div id="overlay-screen">
+        <h1 id="ov-title"></h1>
+        <button id="ov-btn" class="btn" style="background:#f1c40f; color:black; padding:10px 30px;"></button>
+    </div>
+
+    <div id="ui-top">
+        <div class="ui-row">
+            <div style="color:#f1c40f; font-size: 20px; font-weight:bold;">💰 $<span id="moneyTxt">400</span></div>
+            <div style="font-weight:bold;">🚩 Nivel: <span id="lvlTxt">1</span></div>
+            <button onclick="promptCode()" class="btn" style="background:#9b59b6; padding:5px 15px;">🔑 CÓDIGOS</button>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-item">HRT: <b id="stat-hrt">x1.000</b></div>
+            <div class="stat-item">MPS: <b id="stat-mps">10</b></div>
+            <div class="stat-item">MPC: <b id="stat-mpc">25</b></div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="350" onmousedown="money += clickVal * hrtMultiplier; updateUI();"></canvas>
+    <div id="unit-bar"></div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // PERSISTENTES
+    let money = 400, mps = 10, clickVal = 25, mpsCost = 50, clickCost = 50;
+    let currentLevel = 1, hrtMultiplier = 1.0, hrtCount = 0;
+   
+    // NIVEL
+    let baseHp, maxBaseHp, enemyBaseHp, maxEnemyBaseHp;
+    let units = [], enemies = [], gameActive = true, lastEnemySpawn = 0, lastIncomeTime = 0;
+    let enemySpawnBlocked = false, maliciousSanctuary = false, domCooldowns = [false,false,false,false,false];
+    let codeMaxUsed = false, elsaCooldown = 0, elsaActive = false;
+
+    const catBase = [
+        { n: "Gato", i: "🐱", w: 30, h: 30, hp: 130, dmg: 12, spd: 1.2, cost: 60 },
+        { n: "Tanque", i: "🛡️", w: 50, h: 45, hp: 650, dmg: 5, spd: 0.6, cost: 150 },
+        { n: "Largo", i: "⚡", w: 25, h: 60, hp: 200, dmg: 35, spd: 2.5, cost: 200 },
+        { n: "Mago", i: "🔮", w: 35, h: 40, hp: 280, dmg: 60, spd: 0.8, cost: 400 }
+    ];
+
+    let catTypes = Array.from({length: 20}, (_, i) => {
+        let b = catBase[i % 4]; let p = 1 + (i * 0.4);
+        return { id: i, name: b.n+" "+(i+1), cost: Math.floor(b.cost*p), hp: Math.floor(b.hp*p), dmg: Math.floor(b.dmg*p), speed: b.spd, range: 25+(i*2), width: b.w, height: b.h, cooldown: 2000+(i*300), ready: true, icon: b.i };
+    });
+
+    catTypes.push(
+        { id: "d_sun", name: "Gato Solar", cost: 1500000, hp: 400000, dmg: 15000, speed: 4, range: 80, width: 80, height: 80, cooldown: 15000, ready: true, icon: "☀️", color: "#FFD700" },
+        { id: "d_inf", name: "Gato Infinito", cost: 99999999, hp: 50000000, dmg: 999999, speed: 2.5, range: 300, width: 150, height: 180, cooldown: 60000, ready: true, icon: "♾️", color: "#E6E6FA" }
+    );
+
+    class Entity {
+        constructor(x, y, side, type) {
+            Object.assign(this, type); this.x = x; this.y = y; this.side = side;
+            this.maxHp = this.hp; this.lastAttack = 0;
+            if(elsaActive && side==='player') { this.width /= 2; this.height /= 2; }
+        }
+        draw() {
+            ctx.save(); ctx.translate(this.x, this.y - this.height);
+            if (this.side === 'enemy') {
+                if (this.isTroll) {
+                    ctx.fillStyle = "white"; ctx.fillRect(0,0,this.width,this.height);
+                    ctx.strokeStyle = "black"; ctx.strokeRect(0,0,this.width,this.height);
+                    ctx.fillStyle="black";
+                    ctx.beginPath(); ctx.arc(this.width*0.3, this.height*0.35, 2, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(this.width*0.7, this.height*0.35, 2, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(this.width*0.5, this.height*0.6, this.width*0.2, 0, Math.PI); ctx.stroke();
+                } else {
+                    ctx.fillStyle = "#8B4513"; ctx.fillRect(0,0,this.width,this.height);
+                    ctx.fillStyle = "#5D2E06"; ctx.fillRect(-2,0,5,8); ctx.fillRect(this.width-3,0,5,8);
+                    ctx.fillStyle = "black"; ctx.fillRect(this.width*0.2, 5, 2, 2); ctx.fillRect(this.width*0.7, 5, 2, 2);
+                }
+            } else if (this.isMuro) {
+                ctx.fillStyle = "#444"; ctx.fillRect(0,0,this.width,this.height);
+                ctx.fillStyle = "#f1c40f"; for(let i=0; i<this.height; i+=15) { ctx.beginPath(); ctx.moveTo(this.width,i); ctx.lineTo(this.width+10,i+7); ctx.lineTo(this.width,i+15); ctx.fill(); }
+            } else {
+                ctx.fillStyle = this.color || (this.isTrans ? "#5BCEFA" : "white");
+                ctx.fillRect(0, 0, this.width, this.height);
+                ctx.fillStyle = "black"; ctx.fillRect(this.width*0.2, 5, 2, 2); ctx.fillRect(this.width*0.7, 5, 2, 2);
+                ctx.fillStyle = "#EEE"; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(5,-8); ctx.lineTo(10,0); ctx.fill(); ctx.moveTo(this.width,0); ctx.lineTo(this.width-5,-8); ctx.lineTo(this.width-10,0); ctx.fill();
+            }
+            ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,-12,this.width,4);
+            ctx.fillStyle='#2ecc71'; ctx.fillRect(0,-12,(this.hp/this.maxHp)*this.width,4);
+            ctx.restore();
+        }
+        update() {
+            let targets = (this.side === 'player' || this.side === 'neutral') ? enemies : units;
+            let inRange = targets.filter(t => this.side !== 'enemy' ? (t.x > this.x && t.x < this.x + this.width + this.range) : (t.x + t.width < this.x && t.x + t.width > this.x - this.range));
+            if(inRange.length > 0) {
+                if(Date.now() - this.lastAttack > (this.isTrans ? 200 : 1000)) {
+                    inRange.forEach(t => {
+                        if(this.isTrans && Math.random() < 0.5) t.hp = 0;
+                        else t.hp -= this.dmg;
+                        if(this.isMuro) t.hp -= 25;
+                    });
+                    this.lastAttack = Date.now();
+                }
+            } else if (!this.isMuro) {
+                if(this.side !== 'enemy' && this.x + this.width < 740) this.x += this.speed;
+                else if(this.side === 'enemy' && this.x > 60) this.x -= this.speed;
+            }
+            if(this.side !== 'enemy' && this.x + this.width >= 740) enemyBaseHp -= (this.dmg/60);
+            if(this.side === 'enemy' && this.x <= 60) baseHp -= (this.dmg/60);
+        }
+    }
+
+    function hrtPrestige() {
+        hrtCount++; hrtMultiplier = 1 + ((hrtCount * 1.05) / 100);
+        money = 400; mps = 10; clickVal = 25; mpsCost = 50; clickCost = 50;
+        currentLevel = 1; resetLevel(false);
+        alert(`¡Evolución! Bono total: +${(hrtCount*1.05).toFixed(2)}%`);
+    }
+
+    function resetLevel(lvlUp) {
+        if(lvlUp) { currentLevel++; if(elsaCooldown > 0) elsaCooldown--; }
+        money = 400; elsaActive = false;
+        maxBaseHp = 1000 * hrtMultiplier; baseHp = maxBaseHp;
+        maxEnemyBaseHp = Math.floor(1500 * Math.pow(1.15, currentLevel-1)); enemyBaseHp = maxEnemyBaseHp;
+        units = []; enemies = []; gameActive = true;
+        document.getElementById('overlay-screen').style.display = 'none';
+        if(currentLevel >= 35) document.getElementById('estrogen-container').style.display = 'block';
+        initUI(); updateUI();
+    }
+
+    function promptCode() {
+        let code = prompt("Código:");
+        if(code === "ELSA") {
+            if(elsaCooldown <= 0) {
+                hrtMultiplier *= 9; elsaActive = true; elsaCooldown = 5;
+                initUI(); alert("❄️ Let it go! Spam de gatos activado.");
+            } else alert(`Espera ${elsaCooldown} partidas.`);
+        } else if(code === "Alextribillo") {
+            document.getElementById('blackout').style.display='flex';
+            setTimeout(() => {
+                document.getElementById('blackout').style.display='none';
+                enemies.push(new Entity(750,335,'enemy',{hp:5000,speed:2,range:10,dmg:50,width:40,height:40,isTroll:true}));
+                alert("TROLLEADO: Aparece un Perro Troll de Élite.");
+            }, 1000);
+        } else if(code === "Ceci") {
+            money += 20000;
+            units.push(new Entity(400, 335, 'neutral', { hp: 40000, dmg: 10, speed: 0, range: 20, width: 50, height: 120, isMuro: true }));
+            alert("Muro de Ceci invocado.");
+        } else if(code === "Max to female") {
+            if(!codeMaxUsed) { unlockTrans(); document.getElementById('estrogen-container').style.display = 'block'; codeMaxUsed = true; alert("Gato Trans desbloqueado."); }
+        } else if(code === "Daniil") { clickVal *= 2; alert("Click x2"); }
+        else if(code === "Pablo") { enemies.forEach(e => e.hp /= 2); alert("Enemigos debilitados."); }
+        updateUI();
+    }
+
+    function useDomain(id, price) {
+        if (money < price || domCooldowns[id]) return;
+        money -= price; domCooldowns[id] = true;
+        if(id===1) { units.forEach(u=>u.dmg*=10); setTimeout(()=>units.forEach(u=>u.dmg/=10),10000); }
+        if(id===4) { maliciousSanctuary=true; setTimeout(()=>maliciousSanctuary=false,12000); }
+        startCD(id, 30000); updateUI();
+    }
+
+    function startCD(id, ms) {
+        const bar = document.getElementById('bar'+id); let s = Date.now();
+        let timer = setInterval(() => { let e = Date.now()-s; bar.style.width = (e/ms*100) + "%"; if(e >= ms){ domCooldowns[id]=false; bar.style.width="0%"; clearInterval(timer); }}, 100);
+    }
+
+    function updateUI() {
+        document.getElementById('moneyTxt').innerText = Math.floor(money);
+        document.getElementById('lvlTxt').innerText = currentLevel;
+        document.getElementById('cCost').innerText = clickCost; document.getElementById('mCost').innerText = mpsCost;
+        document.getElementById('stat-hrt').innerText = "x" + hrtMultiplier.toFixed(3);
+        document.getElementById('stat-mps').innerText = Math.floor(mps * hrtMultiplier);
+        document.getElementById('stat-mpc').innerText = Math.floor(clickVal * hrtMultiplier);
+    }
+
+    function loop(t) {
+        if (gameActive) {
+            ctx.clearRect(0,0,800,350);
+            ctx.fillStyle='#34495e'; ctx.fillRect(0,150,60,185);
+            ctx.fillStyle='#c0392b'; ctx.fillRect(740,150,60,185);
+            ctx.fillStyle='white'; ctx.font='bold 12px Arial';
+            ctx.fillText(Math.floor(baseHp)+"/"+Math.floor(maxBaseHp), 5, 140);
+            ctx.fillText(Math.floor(enemyBaseHp)+"/"+Math.floor(maxEnemyBaseHp), 710, 140);
+            ctx.fillStyle='red'; ctx.fillRect(5,145,50,5); ctx.fillStyle='green'; ctx.fillRect(5,145,(baseHp/maxBaseHp)*50,5);
+            ctx.fillStyle='red'; ctx.fillRect(745,145,50,5); ctx.fillStyle='green'; ctx.fillRect(745,145,(enemyBaseHp/maxEnemyBaseHp)*50,5);
+
+            ctx.fillStyle='#2ecc71'; ctx.fillRect(0,335,800,15);
+            if(t-lastIncomeTime > 1000){ money += mps*hrtMultiplier; lastIncomeTime=t; updateUI(); }
+            if(t-lastEnemySpawn > (3000-(currentLevel*50)) && !enemySpawnBlocked){
+                enemies.push(new Entity(720, 335, 'enemy', { hp: 150*Math.pow(1.1,currentLevel), speed: 0.8+(currentLevel*0.02), range: 20, dmg: 10, width: 30, height: 30, isTroll: false }));
+                lastEnemySpawn=t;
+            }
+            if(maliciousSanctuary) { enemies.forEach(e => e.hp = 0); }
+            units = units.filter(u=>u.hp>0); enemies = enemies.filter(e=>e.hp>0);
+            [...units, ...enemies].forEach(e => { e.update(); e.draw(); });
+            if(baseHp <= 0) { gameActive = false; showOverlay("DERROTA", false); }
+            if(enemyBaseHp <= 0) { gameActive = false; showOverlay(currentLevel < 35 ? "NIVEL COMPLETADO" : "SAGA TERMINADA", true); }
+        }
+        requestAnimationFrame(loop);
+    }
+
+    function showOverlay(txt, win) {
+        document.getElementById('overlay-screen').style.display='flex';
+        document.getElementById('ov-title').innerText=txt;
+        document.getElementById('ov-btn').innerText=win?"SIGUIENTE":"REINTENTAR";
+        document.getElementById('ov-btn').onclick=()=>resetLevel(win);
+    }
+
+    function unlockTrans() {
+        if(!catTypes.find(x => x.id === "trans")) {
+            catTypes.push({ id: "trans", name: "Gato Trans", cost: 16000, hp: 20000, dmg: 50, speed: 3.5, range: 45, width: 35, height: 55, cooldown: 1000, ready: true, icon: "⚧️", isTrans: true });
+            initUI();
+        }
+    }
+
+    function upgradeClick() { if(money >= clickCost){ money -= clickCost; clickVal += 30; clickCost = Math.floor(clickCost*1.9); updateUI(); }}
+    function upgradeMPS() { if(money >= mpsCost){ money -= mpsCost; mps += 25; mpsCost = Math.floor(mpsCost*1.9); updateUI(); }}
+    function playCasino() { let bet = Math.floor(money*(parseInt(document.getElementById('betPercent').value)/100)); money -= bet; if(Math.random()<0.3) { money += bet*4; alert("¡JACKPOT!"); } else alert("Perdiste"); updateUI(); }
+    function fullReset() { localStorage.clear(); location.reload(); }
+
+    function initUI() {
+        const bar = document.getElementById('unit-bar'); bar.innerHTML = "";
+        catTypes.forEach(cat => {
+            const slot = document.createElement('div'); slot.className = 'unit-slot';
+            if(elsaActive) slot.style.boxShadow = "inset 0 0 10px #5bcefa";
+            slot.onclick = () => {
+                if (money >= cat.cost && (cat.ready || elsaActive) && gameActive) {
+                    money -= cat.cost; units.push(new Entity(75, 335, 'player', cat));
+                    if(!elsaActive) {
+                        cat.ready = false;
+                        const overlay = document.createElement('div'); overlay.className = 'cooldown-overlay'; slot.appendChild(overlay);
+                        let s = Date.now(); let timer = setInterval(() => { let p = 100 - ((Date.now()-s)/cat.cooldown*100); overlay.style.height = Math.max(0,p)+'%'; if(p<=0){ cat.ready=true; overlay.remove(); clearInterval(timer); }}, 50);
+                    }
+                    updateUI();
+                }
+            };
+            slot.innerHTML = `<div>${cat.icon}</div><small style="font-size:10px">${cat.name}</small><b>$${cat.cost}</b>`;
+            bar.appendChild(slot);
+        });
+    }
+
+    resetLevel(false); requestAnimationFrame(loop);
+</script>
+</body>
+</html>
