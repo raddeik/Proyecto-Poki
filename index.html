@@ -441,10 +441,27 @@
 
 </div>
 
-  <div class="card" onclick="openGame('games/ugs-files/index.html')">
-  <h3>UGS Files</h3>
+  <div class="card">
+
+  <button class="fav-btn"
+    onclick="toggleFavorite(
+      'UGS Files',
+      'games/ugs-files/index.html',
+      'assets/images/portada-ugs-files.png'
+    )">
+    ☆
+  </button>
+
+  <div onclick="openGame('games/ugs-files/index.html')">
+
+    <img src="assets/images/portada-ugs-files.png">
+
+    <h3>UGS Files</h3>
+
+  </div>
+
 </div>
-  
+
 <script src="app.js"></script>
 </body>
 </html>
