@@ -1,1 +1,344 @@
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a0a2e; font-family: var(--font-sans); }
+#gameCanvas { display: block; margin: 0 auto; border: 2px solid #7F77DD; border-radius: 8px; }
+#ui { color: #fff; text-align: center; padding: 8px; background: #26215C; }
+#ui span { margin: 0 16px; font-size: 14px; font-weight: 500; }
+#levelSelect { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-height: 120px; overflow-y: auto; padding: 6px; }
+.lvlBtn { width: 32px; height: 24px; font-size: 11px; border: 1px solid #534AB7; background: #26215C; color: #AFA9EC; border-radius: 4px; cursor: pointer; }
+.lvlBtn.done { background: #1D9E75; color: #E1F5EE; border-color: #0F6E56; }
+.lvlBtn.current { background: #7F77DD; color: #fff; border-color: #EEEDFE; }
+.lvlBtn:hover { background: #3C3489; }
+#msg { position: absolute; left: 50%; transform: translateX(-50%); top: 50px; font-size: 22px; font-weight: 500; color: #FAC775; text-shadow: 0 0 10px #EF9F27; pointer-events: none; display: none; }
+#overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; border-radius: 8px; }
+#overlay h2 { font-size: 20px; color: #FAC775; margin-bottom: 8px; }
+#overlay p { font-size: 13px; color: #AFA9EC; margin-bottom: 12px; }
+#startBtn { padding: 8px 24px; background: #534AB7; color: #fff; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; }
+#startBtn:hover { background: #7F77DD; }
+#wrap { position: relative; width: 480px; margin: 0 auto; }
+</style>
 
+<div id="ui">
+  <span>🐯 Tiger Ball</span>
+  <span id="lvlInfo">Nivel: 1</span>
+  <span id="scoreInfo">Puntos: 0</span>
+  <span id="livesInfo">Vidas: 3</span>
+</div>
+<div id="wrap">
+  <canvas id="gameCanvas" width="480" height="320"></canvas>
+  <div id="overlay">
+    <h2>🐯 Tiger Ball</h2>
+    <p>Rompe todos los bloques para pasar de nivel.<br>Mueve la paleta con el ratón o toca la pantalla.</p>
+    <button id="startBtn">¡Jugar!</button>
+  </div>
+  <div id="msg"></div>
+</div>
+<div id="levelSelect"></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let level = 1, score = 0, lives = 3, gameRunning = false;
+let completedLevels = new Set();
+let animId;
+
+const PADDLE_W = 80, PADDLE_H = 10;
+let paddleX = W/2 - PADDLE_W/2;
+const BALL_R = 8;
+let bx, by, vx, vy;
+let blocks = [], particles = [];
+
+const COLORS = ['#E24B4A','#EF9F27','#1D9E75','#378ADD','#7F77DD','#D4537E','#639922','#0F6E56','#185FA5','#534AB7'];
+
+function getLevelConfig(lvl) {
+  const rows = 2 + Math.min(Math.floor(lvl / 8), 5);
+  const cols = 8 + Math.min(Math.floor(lvl / 15), 4);
+  const speed = 2.5 + lvl * 0.08;
+  const hasSteel = lvl > 10;
+  const hasPowerup = lvl > 5;
+  const zigzag = lvl > 20 && lvl % 3 === 0;
+  const diamond = lvl > 40 && lvl % 5 === 0;
+  const spiral = lvl > 80 && lvl % 7 === 0;
+  return { rows, cols, speed, hasSteel, hasPowerup, zigzag, diamond, spiral };
+}
+
+function buildBlocks(lvl) {
+  blocks = [];
+  const cfg = getLevelConfig(lvl);
+  const bw = Math.floor((W - 20) / cfg.cols) - 3;
+  const bh = 16;
+  const startX = 10;
+  const startY = 30;
+
+  for (let r = 0; r < cfg.rows; r++) {
+    for (let c = 0; c < cfg.cols; c++) {
+      let active = true;
+      if (cfg.diamond) {
+        const cx = cfg.cols / 2 - 0.5;
+        const cy = cfg.rows / 2 - 0.5;
+        active = Math.abs(c - cx) + Math.abs(r - cy) <= cfg.cols / 2;
+      } else if (cfg.spiral) {
+        active = (r + c) % 3 !== 0;
+      } else if (cfg.zigzag) {
+        active = (r % 2 === 0) || (c % 2 === 0);
+      }
+      if (!active) continue;
+
+      const isSteel = cfg.hasSteel && Math.random() < 0.1;
+      const isPower = cfg.hasPowerup && !isSteel && Math.random() < 0.07;
+      const hp = isSteel ? 3 : (lvl > 30 && Math.random() < 0.15 ? 2 : 1);
+      blocks.push({
+        x: startX + c * (bw + 3),
+        y: startY + r * (bh + 4),
+        w: bw, h: bh,
+        hp, maxHp: hp,
+        color: isSteel ? '#888780' : COLORS[(r * cfg.cols + c) % COLORS.length],
+        steel: isSteel,
+        power: isPower
+      });
+    }
+  }
+}
+
+function resetBall(lvl) {
+  bx = W / 2; by = H - 60;
+  const cfg = getLevelConfig(lvl);
+  const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.0;
+  vx = Math.cos(angle) * cfg.speed;
+  vy = Math.sin(angle) * cfg.speed;
+}
+
+function spawnParticles(x, y, color) {
+  for (let i = 0; i < 8; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 1 + Math.random() * 3;
+    particles.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, life: 1, color });
+  }
+}
+
+function showMsg(text, duration=1500) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', duration);
+}
+
+function updateLevelUI() {
+  document.getElementById('lvlInfo').textContent = 'Nivel: ' + level;
+  document.getElementById('scoreInfo').textContent = 'Puntos: ' + score;
+  document.getElementById('livesInfo').textContent = 'Vidas: ' + lives;
+  buildLevelSelect();
+}
+
+function buildLevelSelect() {
+  const el = document.getElementById('levelSelect');
+  el.innerHTML = '';
+  for (let i = 1; i <= 200; i++) {
+    const b = document.createElement('button');
+    b.className = 'lvlBtn' + (completedLevels.has(i) ? ' done' : '') + (i === level ? ' current' : '');
+    b.textContent = i;
+    const li = i;
+    b.onclick = () => { if (!gameRunning) return; level = li; startLevel(); };
+    el.appendChild(b);
+  }
+}
+
+function startLevel() {
+  buildBlocks(level);
+  resetBall(level);
+  paddleX = W/2 - PADDLE_W/2;
+  particles = [];
+  updateLevelUI();
+  showMsg('Nivel ' + level, 1000);
+}
+
+function drawTigerBall(x, y, r) {
+  ctx.save();
+  ctx.shadowColor = '#EF9F27';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  ctx.fillStyle = '#FAC775';
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#BA7517';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = '#854F0B';
+  ctx.font = `${r}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🐯', x, y);
+  ctx.restore();
+}
+
+function drawBlock(b) {
+  const ratio = b.hp / b.maxHp;
+  ctx.fillStyle = b.color;
+  ctx.globalAlpha = 0.4 + 0.6 * ratio;
+  roundRect(ctx, b.x, b.y, b.w, b.h, 3);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 0.5;
+  roundRect(ctx, b.x, b.y, b.w, b.h, 3);
+  ctx.stroke();
+  if (b.power) {
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⭐', b.x + b.w/2, b.y + b.h/2);
+  }
+  if (b.steel) {
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🔒', b.x + b.w/2, b.y + b.h/2);
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.arcTo(x+w, y, x+w, y+r, r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h);
+  ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r);
+  ctx.arcTo(x, y, x+r, y, r);
+  ctx.closePath();
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, W, H);
+ 
+  ctx.fillStyle = '#0f0520';
+  ctx.fillRect(0, 0, W, H);
+ 
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, 'rgba(83,74,183,0.1)');
+  grad.addColorStop(1, 'rgba(186,117,23,0.05)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  blocks.forEach(b => drawBlock(b));
+
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.life -= 0.04;
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+
+  ctx.fillStyle = '#7F77DD';
+  ctx.shadowColor = '#AFA9EC';
+  ctx.shadowBlur = 6;
+  roundRect(ctx, paddleX, H-20, PADDLE_W, PADDLE_H, 5);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  drawTigerBall(bx, by, BALL_R);
+
+  bx += vx; by += vy;
+
+  if (bx - BALL_R < 0) { bx = BALL_R; vx = Math.abs(vx); }
+  if (bx + BALL_R > W) { bx = W - BALL_R; vx = -Math.abs(vx); }
+  if (by - BALL_R < 0) { by = BALL_R; vy = Math.abs(vy); }
+
+  if (by + BALL_R >= H - 20 && by + BALL_R <= H - 8 && bx >= paddleX - 5 && bx <= paddleX + PADDLE_W + 5) {
+    const rel = (bx - paddleX) / PADDLE_W - 0.5;
+    const spd = Math.sqrt(vx*vx + vy*vy);
+    const ang = -Math.PI/2 + rel * 1.2;
+    vx = Math.cos(ang) * spd;
+    vy = Math.sin(ang) * spd;
+    by = H - 20 - BALL_R - 1;
+  }
+
+  if (by + BALL_R > H) {
+    lives--;
+    updateLevelUI();
+    if (lives <= 0) {
+      showMsg('💀 Game Over', 3000);
+      setTimeout(() => {
+        lives = 3; score = 0; level = 1; completedLevels.clear();
+        startLevel();
+      }, 3000);
+    } else {
+      showMsg('😿 ¡Perdiste la bola!', 1200);
+      resetBall(level);
+    }
+  }
+
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i];
+    if (bx + BALL_R > b.x && bx - BALL_R < b.x + b.w &&
+        by + BALL_R > b.y && by - BALL_R < b.y + b.h) {
+      const overlapL = bx + BALL_R - b.x;
+      const overlapR = b.x + b.w - (bx - BALL_R);
+      const overlapT = by + BALL_R - b.y;
+      const overlapB = b.y + b.h - (by - BALL_R);
+      const minOH = Math.min(overlapL, overlapR);
+      const minOV = Math.min(overlapT, overlapB);
+      if (minOH < minOV) vx = -vx; else vy = -vy;
+      b.hp--;
+      spawnParticles(b.x + b.w/2, b.y + b.h/2, b.color);
+      if (b.hp <= 0) {
+        score += b.steel ? 30 : (b.power ? 20 : 10);
+        if (b.power) { lives = Math.min(lives+1, 5); showMsg('❤️ +Vida', 800); }
+        blocks.splice(i, 1);
+      }
+      updateLevelUI();
+      break;
+    }
+  }
+
+  if (blocks.length === 0) {
+    completedLevels.add(level);
+    score += 100 + level * 5;
+    if (level >= 200) {
+      showMsg('🏆 ¡GANASTE LOS 200 NIVELES!', 5000);
+      cancelAnimationFrame(animId);
+      gameRunning = false;
+      return;
+    }
+    level++;
+    startLevel();
+  }
+
+  animId = requestAnimationFrame(gameLoop);
+}
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  paddleX = Math.max(0, Math.min(W - PADDLE_W, mx - PADDLE_W/2));
+});
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const tx = e.touches[0].clientX - rect.left;
+  paddleX = Math.max(0, Math.min(W - PADDLE_W, tx - PADDLE_W/2));
+}, { passive: false });
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('overlay').style.display = 'none';
+  gameRunning = true;
+  level = 1; score = 0; lives = 3;
+  completedLevels.clear();
+  buildLevelSelect();
+  startLevel();
+  gameLoop();
+});
+
+buildLevelSelect();
+</script>
